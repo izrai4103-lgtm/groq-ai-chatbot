@@ -87,8 +87,8 @@ export default function Home() {
         <div className="header-left">
           <div className="header-avatar">🤖</div>
           <div className="header-info">
-            <h1>Groq Chatbot</h1>
-            <p><span className="status-dot"></span>Online · 3 Models AI</p>
+            <h1>Groq AI</h1>
+            <p><span className="status-dot"></span>🧠 Thinking · 🔍 Web Research</p>
           </div>
         </div>
         <div className="header-actions">
