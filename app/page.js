@@ -4,12 +4,17 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 
 export default function Home() {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Halo! Aku Groq AI Chatbot. Ada yang bisa aku bantu hari ini?', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+    { role: 'assistant', content: 'Halo! Aku Groq AI Chatbot. Ada yang bisa aku bantu?', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showScrollBtn, setShowScrollBtn] = useState(false)
+  const [codeInput, setCodeInput] = useState('')
+  const [codeLang, setCodeLang] = useState('javascript')
+  const [codeResult, setCodeResult] = useState(null)
+  const [codeLoading, setCodeLoading] = useState(false)
+  const [showCodePanel, setShowCodePanel] = useState(false)
   const chatRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -21,13 +26,8 @@ export default function Home() {
     })
   }, [])
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages, scrollToBottom])
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
+  useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
+  useEffect(() => { inputRef.current?.focus() }, [])
 
   const handleScroll = useCallback(() => {
     if (!chatRef.current) return
@@ -42,7 +42,6 @@ export default function Home() {
 
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     const userMsg = { role: 'user', content: text, time }
-    
     setMessages(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
@@ -63,13 +62,12 @@ export default function Home() {
       }
 
       const data = await res.json()
-      if (!data.content) throw new Error('Respon kosong dari AI')
+      if (!data.content) throw new Error('Respon kosong')
 
       const aiTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       setMessages(prev => [...prev, { role: 'assistant', content: data.content, time: aiTime }])
     } catch (err) {
-      console.error('Chat error:', err)
-      setError(err.message || 'Gagal mendapatkan respon. Coba lagi.')
+      setError(err.message || 'Gagal mendapatkan respon')
     } finally {
       setLoading(false)
       inputRef.current?.focus()
@@ -84,11 +82,29 @@ export default function Home() {
   }
 
   const clearChat = () => {
-    setMessages([
-      { role: 'assistant', content: 'Halo! Aku Groq AI Chatbot. Ada yang bisa aku bantu hari ini?', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-    ])
+    setMessages([{ role: 'assistant', content: 'Halo! Aku Groq AI Chatbot. Ada yang bisa aku bantu?', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }])
     setError('')
   }
+
+  const handleRunCode = useCallback(async () => {
+    if (!codeInput.trim() || codeLoading) return
+    setCodeLoading(true)
+    setCodeResult(null)
+
+    try {
+      const res = await fetch('/api/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: codeInput, language: codeLang })
+      })
+      const data = await res.json()
+      setCodeResult(data)
+    } catch (err) {
+      setCodeResult({ success: false, error: err.message })
+    } finally {
+      setCodeLoading(false)
+    }
+  }, [codeInput, codeLang, codeLoading])
 
   return (
     <div className="container">
@@ -97,11 +113,16 @@ export default function Home() {
           <div className="header-avatar">🤖</div>
           <div className="header-info">
             <h1>Groq Chatbot</h1>
-            <p><span className="status-dot"></span>Online · Llama 3.1</p>
+            <p><span className="status-dot"></span>Online · 3 Models AI</p>
           </div>
         </div>
         <div className="header-actions">
-          <button className="header-btn" onClick={clearChat} title="Hapus percakapan" aria-label="Hapus percakapan">
+          <button className="header-btn" onClick={() => setShowCodePanel(!showCodePanel)} title="Run Code" aria-label="Run Code">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+          </button>
+          <button className="header-btn" onClick={clearChat} title="Hapus percakapan" aria-label="Hapus">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
             </svg>
@@ -124,18 +145,8 @@ export default function Home() {
           <div className="message assistant">
             <div className="avatar">AI</div>
             <div className="bubble">
-              <div className="typing-dots">
-                <span></span><span></span><span></span>
-              </div>
+              <div className="typing-dots"><span></span><span></span><span></span></div>
             </div>
-          </div>
-        )}
-
-        {!loading && messages.length === 1 && (
-          <div className="empty-state">
-            <div className="empty-icon">💬</div>
-            <h2>Groq AI Chatbot</h2>
-            <p>Tanyakan apa saja, AI siap membantu!</p>
           </div>
         )}
 
@@ -147,11 +158,56 @@ export default function Home() {
         )}
       </div>
 
-      <button
-        className={`scroll-bottom ${showScrollBtn ? 'visible' : ''}`}
-        onClick={() => scrollToBottom()}
-        aria-label="Scroll ke bawah"
-      >
+      {/* CODE PANEL */}
+      {showCodePanel && (
+        <div className="code-panel">
+          <div className="code-panel-header">
+            <span>⚡ Run Code</span>
+            <div className="code-lang-select">
+              <select value={codeLang} onChange={e => setCodeLang(e.target.value)}>
+                <option value="javascript">JavaScript</option>
+                <option value="python">Python</option>
+              </select>
+            </div>
+          </div>
+          <textarea
+            className="code-input"
+            value={codeInput}
+            onChange={e => setCodeInput(e.target.value)}
+            placeholder="Tulis kode di sini..."
+            rows={5}
+          />
+          <div className="code-actions">
+            <button className="run-btn" onClick={handleRunCode} disabled={codeLoading || !codeInput.trim()}>
+              {codeLoading ? '⏳ Menjalankan...' : '▶️ Run'}
+            </button>
+          </div>
+          {codeResult && (
+            <div className={`code-output ${codeResult.success ? 'success' : 'error'}`}>
+              {codeResult.modelUsed && (
+                <div className="code-meta">🤖 {codeResult.modelUsed}</div>
+              )}
+              {codeResult.explanation && (
+                <div className="code-explanation">{codeResult.explanation}</div>
+              )}
+              {codeResult.output && (
+                <div className="code-output-text">
+                  <div className="output-label">📤 Output:</div>
+                  <pre>{codeResult.output}</pre>
+                </div>
+              )}
+              {codeResult.error && (
+                <div className="code-error-text">
+                  <div className="output-label">❌ Error:</div>
+                  <pre>{codeResult.error}</pre>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <button className={`scroll-bottom ${showScrollBtn ? 'visible' : ''}`} onClick={() => scrollToBottom()} aria-label="Scroll">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 9l6 6 6-6" />
         </svg>
@@ -165,11 +221,11 @@ export default function Home() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ketik pesan..."
+            placeholder={showCodePanel ? "Chat dengan AI..." : "Ketik pesan..."}
             disabled={loading}
             autoFocus
           />
-          <button type="submit" disabled={loading || !input.trim()} aria-label="Kirim pesan">
+          <button type="submit" disabled={loading || !input.trim()} aria-label="Kirim">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 2L11 13" /><path d="M22 2L15 22L11 13L2 9L22 2Z" />
             </svg>

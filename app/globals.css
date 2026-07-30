@@ -487,3 +487,135 @@ header {
     padding: 10px 14px;
   }
 }
+
+/* ===== CODE PANEL ===== */
+.code-panel {
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.code-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent-1);
+}
+
+.code-lang-select select {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  outline: none;
+  cursor: pointer;
+}
+
+.code-input {
+  width: 100%;
+  background: #0a0e1a;
+  color: #e2e8f0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  min-height: 80px;
+}
+
+.code-input:focus {
+  border-color: var(--accent-1);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.code-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.run-btn {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.run-btn:hover:not(:disabled) {
+  transform: scale(1.03);
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.3);
+}
+
+.run-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.code-output {
+  background: #0a0e1a;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  animation: msgIn 0.3s ease;
+}
+
+.code-output.success {
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.code-output.error {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.code-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-bottom: 6px;
+}
+
+.code-explanation {
+  color: var(--accent-1);
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.output-label {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-bottom: 4px;
+}
+
+.code-output pre {
+  background: rgba(0,0,0,0.3);
+  border-radius: 4px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.code-output-text pre {
+  color: #4ade80;
+}
+
+.code-error-text pre {
+  color: #f87171;
+}
