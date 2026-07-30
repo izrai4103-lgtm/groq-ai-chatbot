@@ -1,37 +1,49 @@
+import { executeInSandbox } from '@/lib/sandbox'
+
 export async function POST(request) {
   try {
-    const { messages } = await request.json()
+    const body = await request.json()
+    const { messages } = body
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return Response.json({ error: 'Messages diperlukan' }, { status: 400 })
+    // Dapatkan IP client
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || 'anonymous'
+
+    // Jalankan di dalam sandbox
+    const result = await executeInSandbox({ messages, ip })
+
+    // Rate limit headers
+    const headers = {
+      'X-RateLimit-Remaining': String(result.meta?.rateLimit?.remaining ?? ''),
+      'X-RateLimit-Reset': String(result.meta?.rateLimit?.resetAt ?? ''),
     }
 
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        messages,
-        temperature: 0.7,
-        max_tokens: 150,
-      }),
-    })
+    if (!result.success) {
+      const statusMap = {
+        'INVALID_INPUT': 400,
+        'EMPTY_AFTER_SANITIZE': 400,
+        'CONTENT_BLOCKED': 403,
+        'RATE_LIMITED': 429,
+        'AI_MODEL_UNAVAILABLE': 503,
+        'AI_MODEL_ERROR': 502,
+        'AI_TIMEOUT': 504,
+        'AI_EMPTY_RESPONSE': 502,
+      }
+      const status = statusMap[result.error?.code] || 500
 
-    if (!res.ok) {
-      const err = await res.text()
-      console.error('Groq API error:', res.status, err)
-      return Response.json({ error: `Groq API: ${res.status}` }, { status: res.status })
+      return Response.json(
+        { error: result.error?.message || 'Unknown error' },
+        { status, headers }
+      )
     }
 
-    const data = await res.json()
-    const content = data.choices?.[0]?.message?.content || ''
-
-    return Response.json({ content })
+    return Response.json({ content: result.content }, { headers })
   } catch (err) {
-    console.error('Internal error:', err)
-    return Response.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('API Route Error:', err)
+    return Response.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
