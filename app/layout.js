@@ -1,13 +1,13 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Groq Chatbot AI',
-  description: 'AI Chatbot powered by Groq',
+  title: 'Groq AI Chatbot',
+  description: 'AI Chatbot berbasis Groq - Cepat, Cerdas, Gratis',
 }
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="id">
       <body>{children}</body>
     </html>
   )
