@@ -7,7 +7,45 @@ const SUGGESTIONS = [
   'Jelaskan cara kerja blockchain',
   'Buatkan puisi tentang coding',
   'Apa perbedaan HTTP dan HTTPS?',
+  'Bagaimana cara memulai bisnis online?',
+  'Tips belajar programming untuk pemula',
 ]
+
+const TODAY = 'Sekarang'
+const YESTERDAY = 'Kemarin'
+const PREV_7 = '7 Hari Terakhir'
+
+const historyItems = [
+  { id: 1, label: 'Groq AI Chatbot', group: TODAY },
+  { id: 2, label: 'Belajar Machine Learning', group: YESTERDAY },
+  { id: 3, label: 'Tips React JS', group: YESTERDAY },
+  { id: 4, label: 'Apa itu Web3?', group: PREV_7 },
+]
+
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }, [text])
+
+  return (
+    <button onClick={handleCopy} title={copied ? 'Tersalin!' : 'Salin'}>
+      {copied ? (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+        </svg>
+      )}
+    </button>
+  )
+}
 
 function ChatMessage({ msg }) {
   if (msg.role === 'system') return null
@@ -21,6 +59,11 @@ function ChatMessage({ msg }) {
         </div>
         <div className="content-col">
           <div className="message-text">{msg.content}</div>
+          {msg.role === 'assistant' && (
+            <div className="message-actions">
+              <CopyButton text={msg.content} />
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -69,7 +112,7 @@ export default function Home() {
   const handleScroll = useCallback(() => {
     if (!chatRef.current) return
     const { scrollTop, scrollHeight, clientHeight } = chatRef.current
-    setShowScrollBtn(scrollHeight - scrollTop - clientHeight > 250)
+    setShowScrollBtn(scrollHeight - scrollTop - clientHeight > 300)
   }, [])
 
   const handleSubmit = useCallback(async (e) => {
@@ -122,7 +165,9 @@ export default function Home() {
 
   const handleSuggestion = useCallback((text) => {
     setInput(text)
-    setTimeout(() => textareaRef.current?.focus(), 50)
+    setTimeout(() => {
+      textareaRef.current?.focus()
+    }, 50)
   }, [])
 
   // Auto-resize textarea
@@ -134,13 +179,21 @@ export default function Home() {
     }
   }, [input])
 
+  // Group history items by date
+  const groupedHistory = {}
+  historyItems.forEach(item => {
+    if (!groupedHistory[item.group]) groupedHistory[item.group] = []
+    groupedHistory[item.group].push(item)
+  })
+  const groupOrder = [TODAY, YESTERDAY, PREV_7]
+
   return (
     <>
-      {/* Sidebar */}
+      {/* ===== SIDEBAR ===== */}
       <div className="sidebar">
-        <div className="sidebar-header">
+        <div className="sidebar-top">
           <button className="new-chat-btn" onClick={newChat}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg viewBox="0 0 24 24" fill="none" strokeLinecap="round">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
@@ -148,36 +201,69 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="sidebar-history">
-          <div className="sidebar-item active">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+        <div className="sidebar-search">
+          <div className="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" strokeLinecap="round">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
             </svg>
-            Groq AI Chatbot
+            <input className="search-input" type="text" placeholder="Cari riwayat..." />
           </div>
         </div>
 
-        <div className="sidebar-footer">
-          <div className="sidebar-user-avatar">B</div>
-          <span>BrutalStrike</span>
+        <div className="sidebar-history">
+          {groupOrder.map(group => (
+            groupedHistory[group] && (
+              <div key={group}>
+                <div className="history-group-label">{group}</div>
+                {groupedHistory[group].map(item => (
+                  <div key={item.id} className={`sidebar-item ${item.id === 1 ? 'active' : ''}`}>
+                    <svg viewBox="0 0 24 24" fill="none" strokeLinecap="round">
+                      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                    </svg>
+                    {item.label}
+                  </div>
+                ))}
+              </div>
+            )
+          ))}
+        </div>
+
+        <div className="sidebar-bottom">
+          <div className="sidebar-bottom-item">
+            <svg viewBox="0 0 24 24" fill="none" strokeLinecap="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+            </svg>
+            Settings
+          </div>
+
+          <div className="sidebar-user">
+            <div className="sidebar-user-avatar">B</div>
+            <div className="sidebar-user-info">
+              <div className="sidebar-user-name">BrutalStrike</div>
+              <div className="sidebar-user-plan">Free Plan</div>
+            </div>
+            <svg className="sidebar-user-dots" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <circle cx="12" cy="12" r="1" />
+              <circle cx="19" cy="12" r="1" />
+              <circle cx="5" cy="12" r="1" />
+            </svg>
+          </div>
         </div>
       </div>
 
-      {/* Main Chat Area */}
+      {/* ===== MAIN CHAT ===== */}
       <div className="main">
-        <div className="chat-header">
-          <h1>Groq<span> AI</span></h1>
-        </div>
-
         <div className="chat-container" ref={chatRef} onScroll={handleScroll}>
           {messages.length === 0 ? (
             <div className="greeting">
               <div className="greeting-logo">💬</div>
               <h2>Apa yang bisa saya bantu?</h2>
               <p>Saya siap membantu Anda dengan berbagai pertanyaan</p>
-              <div className="suggestion-chips">
+              <div className="greeting-suggestions">
                 {SUGGESTIONS.map((s, i) => (
-                  <button key={i} className="suggestion-chip" onClick={() => handleSuggestion(s)}>
+                  <button key={i} className="greeting-suggestion" onClick={() => handleSuggestion(s)}>
                     {s}
                   </button>
                 ))}
@@ -211,6 +297,12 @@ export default function Home() {
 
         <div className="input-area">
           <form className="input-wrapper" onSubmit={handleSubmit}>
+            <button type="button" className="input-plus-btn" aria-label="Tambah">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
             <textarea
               ref={textareaRef}
               value={input}
@@ -223,7 +315,7 @@ export default function Home() {
             <button
               type="submit"
               disabled={loading || !input.trim()}
-              className={input.trim() ? 'send-active' : ''}
+              className={`input-send-btn ${input.trim() ? 'active' : ''}`}
               aria-label="Kirim pesan"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
