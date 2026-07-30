@@ -4,20 +4,35 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 
 export default function Home() {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Halo! Aku Groq AI Chatbot. Ada yang bisa aku bantu?' }
+    { role: 'assistant', content: 'Halo! Aku Groq AI Chatbot. Ada yang bisa aku bantu hari ini?', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showScrollBtn, setShowScrollBtn] = useState(false)
   const chatRef = useRef(null)
   const inputRef = useRef(null)
 
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (!chatRef.current) return
+    chatRef.current.scrollTo({
+      top: chatRef.current.scrollHeight,
+      behavior: smooth ? 'smooth' : 'instant'
+    })
+  }, [])
+
   useEffect(() => {
-    chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: 'smooth' })
-  }, [messages])
+    scrollToBottom()
+  }, [messages, scrollToBottom])
 
   useEffect(() => {
     inputRef.current?.focus()
+  }, [])
+
+  const handleScroll = useCallback(() => {
+    if (!chatRef.current) return
+    const { scrollTop, scrollHeight, clientHeight } = chatRef.current
+    setShowScrollBtn(scrollHeight - scrollTop - clientHeight > 150)
   }, [])
 
   const handleSubmit = useCallback(async (e) => {
@@ -25,7 +40,9 @@ export default function Home() {
     const text = input.trim()
     if (!text || loading) return
 
-    const userMsg = { role: 'user', content: text }
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const userMsg = { role: 'user', content: text, time }
+    
     setMessages(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
@@ -48,7 +65,8 @@ export default function Home() {
       const data = await res.json()
       if (!data.content) throw new Error('Respon kosong dari AI')
 
-      setMessages(prev => [...prev, { role: 'assistant', content: data.content }])
+      const aiTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      setMessages(prev => [...prev, { role: 'assistant', content: data.content, time: aiTime }])
     } catch (err) {
       console.error('Chat error:', err)
       setError(err.message || 'Gagal mendapatkan respon. Coba lagi.')
@@ -65,24 +83,40 @@ export default function Home() {
     }
   }
 
+  const clearChat = () => {
+    setMessages([
+      { role: 'assistant', content: 'Halo! Aku Groq AI Chatbot. Ada yang bisa aku bantu hari ini?', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+    ])
+    setError('')
+  }
+
   return (
     <div className="container">
       <header>
-        <h1>🤖 Groq Chatbot</h1>
-        <p>Powered by Llama 3.1 & Groq</p>
+        <div className="header-left">
+          <div className="header-avatar">🤖</div>
+          <div className="header-info">
+            <h1>Groq Chatbot</h1>
+            <p><span className="status-dot"></span>Online · Llama 3.1</p>
+          </div>
+        </div>
+        <div className="header-actions">
+          <button className="header-btn" onClick={clearChat} title="Hapus percakapan" aria-label="Hapus percakapan">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+            </svg>
+          </button>
+        </div>
       </header>
 
-      <div className="chat-container" ref={chatRef}>
-        {messages.length === 0 && (
-          <div className="empty-state">
-            <p>Mulai percakapan dengan AI</p>
-          </div>
-        )}
-
+      <div className="chat-container" ref={chatRef} onScroll={handleScroll}>
         {messages.map((msg, i) => (
           <div key={i} className={`message ${msg.role}`}>
             <div className="avatar">{msg.role === 'user' ? 'U' : 'AI'}</div>
-            <div className="bubble"><p>{msg.content}</p></div>
+            <div>
+              <div className="bubble"><p>{msg.content}</p></div>
+              {msg.time && <div className="msg-time">{msg.time}</div>}
+            </div>
           </div>
         ))}
 
@@ -97,6 +131,14 @@ export default function Home() {
           </div>
         )}
 
+        {!loading && messages.length === 1 && (
+          <div className="empty-state">
+            <div className="empty-icon">💬</div>
+            <h2>Groq AI Chatbot</h2>
+            <p>Tanyakan apa saja, AI siap membantu!</p>
+          </div>
+        )}
+
         {error && (
           <div className="error-banner">
             <span>⚠️</span> {error}
@@ -105,27 +147,34 @@ export default function Home() {
         )}
       </div>
 
+      <button
+        className={`scroll-bottom ${showScrollBtn ? 'visible' : ''}`}
+        onClick={() => scrollToBottom()}
+        aria-label="Scroll ke bawah"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+
       <form className="input-area" onSubmit={handleSubmit}>
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ketik pesan..."
-          disabled={loading}
-          autoFocus
-        />
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          aria-label="Kirim pesan"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 2L11 13" />
-            <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-          </svg>
-        </button>
+        <div className="input-wrapper">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ketik pesan..."
+            disabled={loading}
+            autoFocus
+          />
+          <button type="submit" disabled={loading || !input.trim()} aria-label="Kirim pesan">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 2L11 13" /><path d="M22 2L15 22L11 13L2 9L22 2Z" />
+            </svg>
+          </button>
+        </div>
       </form>
     </div>
   )
