@@ -10,11 +10,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showScrollBtn, setShowScrollBtn] = useState(false)
-  const [codeInput, setCodeInput] = useState('')
-  const [codeLang, setCodeLang] = useState('javascript')
-  const [codeResult, setCodeResult] = useState(null)
-  const [codeLoading, setCodeLoading] = useState(false)
-  const [showCodePanel, setShowCodePanel] = useState(false)
   const chatRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -86,26 +81,6 @@ export default function Home() {
     setError('')
   }
 
-  const handleRunCode = useCallback(async () => {
-    if (!codeInput.trim() || codeLoading) return
-    setCodeLoading(true)
-    setCodeResult(null)
-
-    try {
-      const res = await fetch('/api/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: codeInput, language: codeLang })
-      })
-      const data = await res.json()
-      setCodeResult(data)
-    } catch (err) {
-      setCodeResult({ success: false, error: err.message })
-    } finally {
-      setCodeLoading(false)
-    }
-  }, [codeInput, codeLang, codeLoading])
-
   return (
     <div className="container">
       <header>
@@ -117,11 +92,6 @@ export default function Home() {
           </div>
         </div>
         <div className="header-actions">
-          <button className="header-btn" onClick={() => setShowCodePanel(!showCodePanel)} title="Run Code" aria-label="Run Code">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="5 3 19 12 5 21 5 3" />
-            </svg>
-          </button>
           <button className="header-btn" onClick={clearChat} title="Hapus percakapan" aria-label="Hapus">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
@@ -158,55 +128,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* CODE PANEL */}
-      {showCodePanel && (
-        <div className="code-panel">
-          <div className="code-panel-header">
-            <span>⚡ Run Code</span>
-            <div className="code-lang-select">
-              <select value={codeLang} onChange={e => setCodeLang(e.target.value)}>
-                <option value="javascript">JavaScript</option>
-                <option value="python">Python</option>
-              </select>
-            </div>
-          </div>
-          <textarea
-            className="code-input"
-            value={codeInput}
-            onChange={e => setCodeInput(e.target.value)}
-            placeholder="Tulis kode di sini..."
-            rows={5}
-          />
-          <div className="code-actions">
-            <button className="run-btn" onClick={handleRunCode} disabled={codeLoading || !codeInput.trim()}>
-              {codeLoading ? '⏳ Menjalankan...' : '▶️ Run'}
-            </button>
-          </div>
-          {codeResult && (
-            <div className={`code-output ${codeResult.success ? 'success' : 'error'}`}>
-              {codeResult.modelUsed && (
-                <div className="code-meta">🤖 {codeResult.modelUsed}</div>
-              )}
-              {codeResult.explanation && (
-                <div className="code-explanation">{codeResult.explanation}</div>
-              )}
-              {codeResult.output && (
-                <div className="code-output-text">
-                  <div className="output-label">📤 Output:</div>
-                  <pre>{codeResult.output}</pre>
-                </div>
-              )}
-              {codeResult.error && (
-                <div className="code-error-text">
-                  <div className="output-label">❌ Error:</div>
-                  <pre>{codeResult.error}</pre>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
       <button className={`scroll-bottom ${showScrollBtn ? 'visible' : ''}`} onClick={() => scrollToBottom()} aria-label="Scroll">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 9l6 6 6-6" />
@@ -221,7 +142,7 @@ export default function Home() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={showCodePanel ? "Chat dengan AI..." : "Ketik pesan..."}
+            placeholder="Ketik pesan..."
             disabled={loading}
             autoFocus
           />
