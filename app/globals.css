@@ -446,6 +446,43 @@ textarea{font-family:var(--font)}
   color:#e6e6e6;white-space:pre
 }
 
+/* ===== CODEBOX PREVIEW (tombol segitiga + modal) ===== */
+.codebox-acts{display:inline-flex;align-items:center;gap:6px;flex-shrink:0}
+.codebox-prev{
+  display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-sec);
+  background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;
+  transition:.15s;flex-shrink:0
+}
+.codebox-prev svg{width:11px;height:11px}
+.codebox-prev:hover{background:var(--bg-hover);color:var(--text)}
+.codebox-prev:active{transform:scale(.94)}
+.codebox-prev.active{color:var(--green);border-color:var(--green);background:rgba(25,195,125,.1)}
+
+.code-preview-overlay{
+  position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.55);
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  backdrop-filter:blur(3px);animation:previewFade .18s ease both
+}
+.code-preview-panel{
+  width:min(880px,94vw);height:min(600px,86vh);background:#fff;border-radius:14px;
+  overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5);
+  animation:previewPop .22s cubic-bezier(.22,.61,.36,1) both
+}
+.code-preview-hd{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 14px;background:#f7f7f7;border-bottom:1px solid #e5e5e5;flex-shrink:0
+}
+.code-preview-title{font-size:13px;font-weight:600;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.code-preview-close{
+  width:28px;height:28px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;
+  background:transparent;border:1px solid #e0e0e0;color:#666;transition:.15s;flex-shrink:0
+}
+.code-preview-close svg{width:14px;height:14px}
+.code-preview-close:hover{background:#ececec;color:#111}
+.code-preview-frame{flex:1;width:100%;border:none;background:#fff}
+@keyframes previewFade{from{opacity:0}to{opacity:1}}
+@keyframes previewPop{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+
 /* ===== ARSIP (CSS: daftar chat aktif vs arsip) ===== */
 .chat-item{position:relative;display:flex;align-items:center;border-radius:6px;transition:background .15s}
 .chat-item:hover{background:var(--bg-hover)}

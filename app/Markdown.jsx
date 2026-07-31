@@ -1,6 +1,7 @@
 'use client'
 
-import { Fragment, useState, useRef } from 'react'
+import { Fragment, useState, useRef, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 
 // Parse text menjadi React nodes (aman, tanpa innerHTML)
 export default function Markdown({ text }) {
@@ -26,9 +27,102 @@ function fallbackCopy(text) {
   }
 }
 
+const PREVIEW_LANGS = ['html', 'jsx']
+
+function canPreview(lang) {
+  return PREVIEW_LANGS.includes(String(lang || '').toLowerCase().trim())
+}
+
+function escapeScriptTags(s) {
+  return String(s).replace(/<\/script/gi, '<\\/script')
+}
+
+// Dokumen preview HTML (dibungkus template bila hanya snippet)
+function buildHtmlDoc(code) {
+  const lower = String(code).toLowerCase()
+  if (lower.includes('<!doctype') || lower.includes('<html')) return code
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  html,body{margin:0;padding:0;background:#fff;color:#111;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+  body{padding:24px;min-height:100vh;box-sizing:border-box}
+  img,svg,video,canvas{max-width:100%}
+</style>
+</head>
+<body>
+${code}
+</body>
+</html>`
+}
+
+// Dokumen preview JSX: transpile dengan Babel standalone + React di iframe sandbox
+function buildJsxDoc(code) {
+  const src = escapeScriptTags(
+    String(code)
+      .replace(/^\s*import\s+(\w+)\s*,\s*\{([^}]*)\}\s+from\s+['"]react['"]\s*;?\s*$/gim, 'const $1 = window.React; const { $2 } = window.React;')
+      .replace(/^\s*import\s+\*\s+as\s+(\w+)\s+from\s+['"]react['"]\s*;?\s*$/gim, 'const $1 = window.React;')
+      .replace(/^\s*import\s+\{([^}]*)\}\s+from\s+['"]react['"]\s*;?\s*$/gim, 'const { $1 } = window.React;')
+      .replace(/^\s*import\s+(\w+)\s+from\s+['"]react['"]\s*;?\s*$/gim, 'const $1 = window.React;')
+      .replace(/^\s*import\s+(\w+)\s+from\s+['"]react-dom['"]\s*;?\s*$/gim, 'const $1 = window.ReactDOM;')
+      .replace(/^\s*import\s+.*?from\s+['"][^'"]+['"]\s*;?\s*$/gim, '')
+      .replace(/^\s*import\s+['"][^'"]+['"]\s*;?\s*$/gim, '')
+      .replace(/^\s*export\s+default\s+/gm, '')
+      .replace(/^\s*export\s+/gm, '')
+  )
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"><\/script>
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"><\/script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"><\/script>
+<style>
+  html,body{margin:0;padding:0;background:#fff;color:#111;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+  #root{min-height:100vh}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+var React = window.React; var ReactDOM = window.ReactDOM;
+${src}
+<\/script>
+<script>
+try {
+  var __C = window.App || window.MyApp || window.Component;
+  var __root = document.getElementById('root');
+  if (__C) ReactDOM.createRoot(__root).render(React.createElement(__C));
+  else if (!__root.childNodes.length) __root.innerHTML = '<div style="padding:20px;font-family:system-ui,sans-serif;color:#888">Tidak ada komponen (App/MyApp/Component) untuk di-preview.</div>';
+} catch (e) {
+  document.getElementById('root').innerHTML = '<pre style="margin:0;padding:16px;font-size:12px;color:#dc2626;white-space:pre-wrap;font-family:monospace">Preview error: ' + e.message + '</pre>';
+}
+<\/script>
+</body>
+</html>`
+}
+
 function CodeBlock({ lang, code }) {
   const [copied, setCopied] = useState(false)
+  const [preview, setPreview] = useState(false)
   const timer = useRef(null)
+
+  const previewable = canPreview(lang)
+  const previewDoc = useMemo(() => {
+    if (!previewable) return null
+    const l = lang.toLowerCase().trim()
+    return l === 'jsx' ? buildJsxDoc(code) : buildHtmlDoc(code)
+  }, [previewable, lang, code])
+
+  useEffect(() => {
+    if (!preview) return
+    const onKey = (e) => { if (e.key === 'Escape') setPreview(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [preview])
 
   const onCopy = () => {
     const done = () => {
@@ -47,25 +141,71 @@ function CodeBlock({ lang, code }) {
     <div className="codebox">
       <div className="codebox-hd">
         <span className="codebox-lang">{lang || 'Kode'}</span>
-        <button
-          type="button"
-          className={`codebox-copy ${copied ? 'done' : ''}`}
-          onClick={onCopy}
-          title="Salin kode"
-          aria-label="Salin kode"
-          aria-pressed={copied}
-        >
-          {copied ? (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-          ) : (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+        <span className="codebox-acts">
+          {previewable && (
+            <button
+              type="button"
+              className={`codebox-prev ${preview ? 'active' : ''}`}
+              onClick={() => setPreview(p => !p)}
+              title="Preview kode"
+              aria-label="Preview kode"
+              aria-pressed={preview}
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+              <span>Preview</span>
+            </button>
           )}
-          <span>{copied ? 'Tersalin' : 'Salin'}</span>
-        </button>
+          <button
+            type="button"
+            className={`codebox-copy ${copied ? 'done' : ''}`}
+            onClick={onCopy}
+            title="Salin kode"
+            aria-label="Salin kode"
+            aria-pressed={copied}
+          >
+            {copied ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+            )}
+            <span>{copied ? 'Tersalin' : 'Salin'}</span>
+          </button>
+        </span>
       </div>
       <pre>
         <code>{code}</code>
       </pre>
+      {preview && previewDoc && createPortal(
+        <div
+          className="code-preview-overlay"
+          onClick={() => setPreview(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Preview kode"
+        >
+          <div className="code-preview-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="code-preview-hd">
+              <span className="code-preview-title">Preview {lang}</span>
+              <button
+                type="button"
+                className="code-preview-close"
+                onClick={() => setPreview(false)}
+                title="Tutup preview"
+                aria-label="Tutup preview"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <iframe
+              title={`Preview ${lang}`}
+              className="code-preview-frame"
+              sandbox="allow-scripts"
+              srcDoc={previewDoc}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }
