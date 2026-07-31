@@ -18,16 +18,17 @@ const MODELS = [
 ]
 
 const HISTORY = [
-  { group: 'Hari Ini', items: [{ t: 'Groq AI Chatbot', active: true }] },
+  { group: 'Hari Ini', items: [{ t: 'Groq AI Chatbot' }] },
   { group: 'Kemarin', items: [{ t: 'Belajar Machine Learning' }, { t: 'Tips React JS' }] },
   { group: '7 Hari Terakhir', items: [{ t: 'Apa itu Web3?' }, { t: 'Buatkan puisi coding' }] },
 ]
 
 let idCounter = 0
 const nextId = () => `m${++idCounter}-${Date.now()}`
+const truncate = (s, n = 42) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
 
 /* ===== STREAMING TEXT (typewriter) ===== */
-function StreamingText({ text, onDone }) {
+function StreamingText({ text, onTick, onDone }) {
   const [n, setN] = useState(0)
   useEffect(() => {
     if (n < text.length) {
@@ -37,13 +38,22 @@ function StreamingText({ text, onDone }) {
     const t = setTimeout(() => onDone?.(), 150)
     return () => clearTimeout(t)
   }, [n, text, onDone])
+
+  useEffect(() => {
+    if (n > 0) onTick?.()
+  }, [n, onTick])
+
   return <div className="msg-txt"><Markdown text={text.slice(0, n)} /></div>
 }
 
 /* ===== MESSAGE ===== */
-function ChatMessage({ msg, isLast, onEdit, onRegenerate, onRate, rating, onCopy, copied, onStreamDone }) {
+function ChatMessage({
+  msg, isLast, loading,
+  onEdit, onRegenerate, onRate, rating, onCopy, copied, onStreamDone, onStreamTick,
+}) {
   if (msg.role === 'system') return null
   const isUser = msg.role === 'user'
+  const showActions = !isUser ? !msg.streaming : !loading
 
   return (
     <div className={`msg ${isUser ? 'user' : 'assistant'}`}>
@@ -55,37 +65,39 @@ function ChatMessage({ msg, isLast, onEdit, onRegenerate, onRate, rating, onCopy
         </div>
         <div className="msg-c">
           {msg.streaming && !isUser ? (
-            <StreamingText text={msg.content} onDone={() => onStreamDone?.(msg.id)} />
+            <StreamingText text={msg.content} onTick={onStreamTick} onDone={() => onStreamDone?.(msg.id)} />
           ) : (
             <div className="msg-txt"><Markdown text={msg.content} /></div>
           )}
-          {!isUser && !msg.streaming && (
+
+          {showActions && (
             <div className="msg-acts">
-              <button className={`act-btn ${copied ? 'copy-done' : ''}`} title="Salin" onClick={() => onCopy(msg)}>
-                {copied ? (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 6L9 17l-5-5" /></svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
-                )}
-              </button>
-              <button className={`act-btn ${rating === 'up' ? 'rated' : ''}`} title="Suka" onClick={() => onRate(msg, 'up')}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 10v12" /><path d="M15 5.88L14 10h5.83a2 2 0 011.92 2.56l-2.33 8A2 2 0 0115.5 22H8a2 2 0 01-2-2v-8a2 2 0 011-1.73l7-4a2 2 0 012.12.26l-1.12 1.35z" /></svg>
-              </button>
-              <button className={`act-btn ${rating === 'down' ? 'rated' : ''}`} title="Tidak suka" onClick={() => onRate(msg, 'down')}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 14V2" /><path d="M9 18.12L10 14H4.17a2 2 0 01-1.92-2.56l2.33-8A2 2 0 018.5 2H16a2 2 0 012 2v8a2 2 0 01-1 1.73l-7 4a2 2 0 01-2.12-.26l1.12-1.35z" /></svg>
-              </button>
-              {isLast && !msg.streaming && (
-                <button className="act-btn" title="Buat ulang" onClick={() => onRegenerate(msg)}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12a9 9 0 11-2.64-6.36" /><path d="M21 3v6h-6" /></svg>
+              {isUser ? (
+                <button className="act-btn" title="Edit pesan" onClick={() => onEdit(msg)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                 </button>
+              ) : (
+                <>
+                  <button className={`act-btn ${copied ? 'copy-done' : ''}`} title="Salin" onClick={() => onCopy(msg)}>
+                    {copied ? (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 6L9 17l-5-5" /></svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+                    )}
+                  </button>
+                  <button className={`act-btn ${rating === 'up' ? 'rated' : ''}`} title="Suka" onClick={() => onRate(msg, 'up')}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 10v12" /><path d="M15 5.88L14 10h5.83a2 2 0 011.92 2.56l-2.33 8A2 2 0 0115.5 22H8a2 2 0 01-2-2v-8a2 2 0 011-1.73l7-4a2 2 0 012.12.26l-1.12 1.35z" /></svg>
+                  </button>
+                  <button className={`act-btn ${rating === 'down' ? 'rated' : ''}`} title="Tidak suka" onClick={() => onRate(msg, 'down')}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 14V2" /><path d="M9 18.12L10 14H4.17a2 2 0 01-1.92-2.56l2.33-8A2 2 0 018.5 2H16a2 2 0 012 2v8a2 2 0 01-1 1.73l-7 4a2 2 0 01-2.12-.26l1.12-1.35z" /></svg>
+                  </button>
+                  {isLast && !loading && (
+                    <button className="act-btn" title="Buat ulang" onClick={() => onRegenerate(msg)}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12a9 9 0 11-2.64-6.36" /><path d="M21 3v6h-6" /></svg>
+                    </button>
+                  )}
+                </>
               )}
-            </div>
-          )}
-          {isUser && (
-            <div className="msg-acts">
-              <button className="act-btn" title="Edit pesan" onClick={() => onEdit(msg)}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-              </button>
             </div>
           )}
         </div>
@@ -108,9 +120,10 @@ function TypingIndicator() {
 
 /* ===== MAIN APP ===== */
 export default function Home() {
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState(() => [
     { id: nextId(), role: 'assistant', content: 'Halo! Aku Groq AI Chatbot. Ada yang bisa aku bantu?' }
   ])
+  const [chatTitle, setChatTitle] = useState('Groq AI Chatbot')
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -128,14 +141,25 @@ export default function Home() {
   const chatRef = useRef(null)
   const taRef = useRef(null)
   const fileRef = useRef(null)
+  const menuRef = useRef(null)
   const abortRef = useRef(null)
   const toastTimer = useRef(null)
+  const copiedTimer = useRef(null)
 
-  const scrollDown = useCallback((sm = true) => {
-    chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: sm ? 'smooth' : 'instant' })
+  /* ===== SCROLL ===== */
+  const scrollDown = useCallback((smooth = true) => {
+    chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
   }, [])
 
-  useEffect(() => { scrollDown() }, [messages, scrollDown])
+  // Scroll ke bawah hanya kalau user sedang dekat bawah (seperti ChatGPT)
+  const autoScroll = useCallback((smooth = true) => {
+    const el = chatRef.current
+    if (!el) return
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (dist < 160) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
+  }, [])
+
+  useEffect(() => { autoScroll() }, [messages, autoScroll])
   useEffect(() => { if (!loading) taRef.current?.focus() }, [loading])
 
   const showToast = useCallback((msg) => {
@@ -150,12 +174,27 @@ export default function Home() {
     setShowScroll(scrollHeight - scrollTop - clientHeight > 300)
   }, [])
 
+  /* ===== CLOSE MENU ON OUTSIDE CLICK / ESC ===== */
+  useEffect(() => {
+    const onDown = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
+    }
+    const onKey = (e) => {
+      if (e.key === 'Escape') { setMenuOpen(false); setSidebarOpen(false) }
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [])
+
   /* ===== SEND ===== */
   const send = useCallback(async (messageList, text) => {
     if (!text || loading) return
     setLoading(true)
     setError('')
-    setInput('')
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -188,9 +227,16 @@ export default function Home() {
       const data = await res.json()
 
       let content = ''
-      if (endpoint === '/api/chat') content = data.content
-      else if (endpoint === '/api/think') content = data.answer || data.research || data.thinking || ''
-      else if (endpoint === '/api/conference') content = formatConference(data)
+      if (endpoint === '/api/chat') {
+        content = data.content
+      } else if (endpoint === '/api/think') {
+        // Thinking → analisa; Research → hasil research
+        content = model === 'thinking'
+          ? (data.thinking || data.answer || '')
+          : (data.research || data.answer || '')
+      } else if (endpoint === '/api/conference') {
+        content = formatConference(data)
+      }
 
       if (!content) throw new Error('Respon kosong')
 
@@ -200,6 +246,7 @@ export default function Home() {
       setError(err.message || 'Gagal mendapatkan respon')
     } finally {
       setLoading(false)
+      abortRef.current = null
     }
   }, [loading, model, webSearch])
 
@@ -210,6 +257,10 @@ export default function Home() {
     const userMsg = { id: nextId(), role: 'user', content: text }
     const all = [...messages, userMsg]
     setMessages(all)
+    setInput('')
+    setFile(null)
+    // Set judul chat dari pesan pertama user
+    if (!messages.some(m => m.role === 'user')) setChatTitle(truncate(text))
     send(all, text)
   }, [input, loading, messages, send])
 
@@ -218,17 +269,26 @@ export default function Home() {
     setLoading(false)
   }, [])
 
+  /* ===== RETRY setelah error ===== */
+  const retry = useCallback(() => {
+    if (loading) return
+    const lastUser = [...messages].reverse().find(m => m.role === 'user')
+    if (!lastUser) return
+    setError('')
+    send(messages, lastUser.content)
+  }, [loading, messages, send])
+
   /* ===== EDIT ===== */
   const editMessage = useCallback((msg) => {
+    if (loading) return
     setMessages(prev => {
       const idx = prev.findIndex(m => m.id === msg.id)
-      if (idx === -1) return prev
-      return prev.slice(0, idx)
+      return idx === -1 ? prev : prev.slice(0, idx)
     })
     setInput(msg.content)
     setError('')
-    setTimeout(() => { taRef.current?.focus(); taRef.current?.scrollIntoView({ block: 'center' }) }, 60)
-  }, [])
+    setTimeout(() => { taRef.current?.focus() }, 60)
+  }, [loading])
 
   /* ===== REGENERATE ===== */
   const regenerate = useCallback((msg) => {
@@ -242,17 +302,17 @@ export default function Home() {
     send(before, userMsg.content)
   }, [loading, messages, send])
 
-  /* ===== RATING ===== */
+  /* ===== RATING / COPY ===== */
   const rate = useCallback((msg, val) => {
     setRatings(prev => ({ ...prev, [msg.id]: prev[msg.id] === val ? null : val }))
   }, [])
 
-  /* ===== COPY ===== */
   const copy = useCallback((msg) => {
     navigator.clipboard.writeText(msg.content).then(() => {
       setCopiedId(msg.id)
       showToast('Pesan disalin!')
-      setTimeout(() => setCopiedId(null), 2000)
+      clearTimeout(copiedTimer.current)
+      copiedTimer.current = setTimeout(() => setCopiedId(null), 2000)
     })
   }, [showToast])
 
@@ -263,8 +323,11 @@ export default function Home() {
 
   /* ===== NEW CHAT ===== */
   const newChat = useCallback(() => {
+    abortRef.current?.abort()
+    setLoading(false)
     setMessages([{ id: nextId(), role: 'assistant', content: 'Halo! Aku Groq AI Chatbot. Ada yang bisa aku bantu?' }])
-    setError(''); setInput(''); setFile(null); setRatings({})
+    setChatTitle('Groq AI Chatbot')
+    setError(''); setInput(''); setFile(null); setRatings({}); setWebSearch(false)
     taRef.current?.focus()
   }, [])
 
@@ -272,6 +335,18 @@ export default function Home() {
     setInput(text)
     setTimeout(() => taRef.current?.focus(), 50)
   }, [])
+
+  /* ===== MODEL SWITCH ===== */
+  const switchModel = useCallback((id) => {
+    setModel(id)
+    setMenuOpen(false)
+    if (loading) {
+      abortRef.current?.abort()
+      setLoading(false)
+      setError('')
+    }
+    taRef.current?.focus()
+  }, [loading])
 
   /* ===== FILE ===== */
   const handleFile = useCallback((e) => {
@@ -291,15 +366,23 @@ export default function Home() {
     if (ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 200) + 'px' }
   }, [input])
 
-  /* ===== KEYDOWN ===== */
   const handleKey = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() }
   }, [handleSubmit])
 
-  const greeting = messages.length === 1 && messages[0].role === 'assistant'
+  const greeting = messages.length === 1 && messages[0].role === 'assistant' && !messages[0].streaming
+  const placeholder = model === 'conference'
+    ? 'Masukkan topik diskusi 4 AI...'
+    : model === 'research'
+      ? 'Tanyakan apa pun, saya cari di web...'
+      : model === 'thinking'
+        ? 'Masukkan pertanyaan untuk dianalisa...'
+        : 'Ketik pesan...'
 
   return (
     <div className="layout">
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+
       {/* ===== SIDEBAR ===== */}
       <aside className={`sidebar ${sidebarOpen ? '' : 'closed'}`}>
         <div className="sidebar-hd">
@@ -317,6 +400,12 @@ export default function Home() {
         </div>
 
         <div className="sidebar-list">
+          <div className="hist-group">Chat Aktif</div>
+          <button className="sidebar-item active" onClick={newChat}>
+            <svg viewBox="0 0 24 24" fill="none" strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
+            {truncate(chatTitle, 34)}
+          </button>
+
           {HISTORY.map(group => {
             const items = group.items.filter(i => i.t.toLowerCase().includes(historyQuery.toLowerCase()))
             if (items.length === 0) return null
@@ -324,7 +413,7 @@ export default function Home() {
               <Fragment key={group.group}>
                 <div className="hist-group">{group.group}</div>
                 {items.map(item => (
-                  <button key={item.t} className={`sidebar-item ${item.active ? 'active' : ''}`} onClick={newChat}>
+                  <button key={item.t} className="sidebar-item" onClick={newChat}>
                     <svg viewBox="0 0 24 24" fill="none" strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
                     {item.t}
                   </button>
@@ -360,21 +449,21 @@ export default function Home() {
         {/* TOPBAR */}
         <div className="topbar">
           <div className="topbar-side">
-            <button className="topbar-btn" onClick={() => setSidebarOpen(o => !o)} title="Sidebar">
+            <button className="topbar-btn" onClick={() => setSidebarOpen(o => !o)} title="Toggle sidebar">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
             </button>
           </div>
 
           {/* MODEL SELECTOR */}
-          <div className={`model-picker ${menuOpen ? 'open' : ''}`}>
-            <button className="model-btn" onClick={() => setMenuOpen(o => !o)}>
+          <div className={`model-picker ${menuOpen ? 'open' : ''}`} ref={menuRef}>
+            <button className="model-btn" onClick={() => setMenuOpen(o => !o)} aria-haspopup="listbox" aria-expanded={menuOpen}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z" /><path d="M12 6v6l4 2" /></svg>
-              <span>{MODELS.find(m => m.id === model)?.name}</span>
+              <span className="m-name">{MODELS.find(m => m.id === model)?.name}</span>
               <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 9l6 6 6-6" /></svg>
             </button>
-            <div className="model-menu">
+            <div className="model-menu" role="listbox">
               {MODELS.map(m => (
-                <button key={m.id} className={`model-opt ${model === m.id ? 'selected' : ''}`} onClick={() => { setModel(m.id); setMenuOpen(false); taRef.current?.focus() }}>
+                <button key={m.id} role="option" aria-selected={model === m.id} className={`model-opt ${model === m.id ? 'selected' : ''}`} onClick={() => switchModel(m.id)}>
                   <div className="m-ic">{m.icon}</div>
                   <div className="m-info">
                     <div className="m-name">{m.name}</div>
@@ -414,6 +503,7 @@ export default function Home() {
                   key={msg.id}
                   msg={msg}
                   isLast={i === messages.length - 1}
+                  loading={loading}
                   onEdit={editMessage}
                   onRegenerate={regenerate}
                   onRate={rate}
@@ -421,12 +511,14 @@ export default function Home() {
                   onCopy={copy}
                   copied={copiedId === msg.id}
                   onStreamDone={finishStream}
+                  onStreamTick={() => autoScroll(false)}
                 />
               ))}
               {loading && <TypingIndicator />}
               {error && (
                 <div className="err">
                   <span>⚠️</span> {error}
+                  <button onClick={retry} title="Coba lagi">↻ Coba lagi</button>
                   <button onClick={() => setError('')}>✕</button>
                 </div>
               )}
@@ -435,7 +527,7 @@ export default function Home() {
         </div>
 
         {/* SCROLL BOTTOM */}
-        <button className={`scroll-btm ${showScroll ? 'show' : ''}`} onClick={() => scrollDown()} aria-label="Scroll">
+        <button className={`scroll-btm ${showScroll ? 'show' : ''}`} onClick={() => scrollDown()} aria-label="Scroll ke bawah">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M6 9l6 6 6-6" /></svg>
         </button>
 
@@ -446,20 +538,26 @@ export default function Home() {
               <div className="file-chip">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" /></svg>
                 {file.name}
-                <button onClick={() => setFile(null)} title="Hapus">
+                <button onClick={() => setFile(null)} title="Hapus lampiran">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
                 </button>
               </div>
             )}
+
             <form className="composer" onSubmit={handleSubmit}>
               <button type="button" className="comp-btn" onClick={() => fileRef.current?.click()} title="Lampirkan file">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" /></svg>
               </button>
               <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={handleFile} />
 
-              <button type="button" className={`comp-btn ${webSearch ? 'on' : ''}`} onClick={() => setWebSearch(w => !w)} title="Cari di web" style={{ width: 'auto', padding: '0 8px', gap: 6, fontSize: 12 }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ width: 16, height: 16 }}><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" /></svg>
-                <span style={{ display: loading ? 'none' : undefined }}>{webSearch ? 'Web aktif' : 'Web'}</span>
+              <button
+                type="button"
+                className={`comp-btn ${webSearch ? 'on' : ''}`}
+                onClick={() => setWebSearch(w => !w)}
+                title={webSearch ? 'Matikan pencarian web' : 'Aktifkan pencarian web'}
+                aria-pressed={webSearch}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" /></svg>
               </button>
 
               <textarea
@@ -467,7 +565,7 @@ export default function Home() {
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKey}
-                placeholder="Ketik pesan..."
+                placeholder={placeholder}
                 disabled={loading}
                 rows={1}
               />

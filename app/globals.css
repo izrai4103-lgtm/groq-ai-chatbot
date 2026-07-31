@@ -24,6 +24,8 @@
 html,body{height:100%;overflow:hidden;background:var(--bg);font-family:var(--font);color:var(--text);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 
 button{font-family:var(--font);cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+input,textarea{font-family:var(--font)}
 textarea{font-family:var(--font)}
 
 /* ===== LAYOUT ===== */
@@ -88,6 +90,7 @@ textarea{font-family:var(--font)}
 .sidebar-user-nm{font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sidebar-user svg:last-child{width:16px;height:16px;stroke:var(--text-sec);flex-shrink:0}
 
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:55}
 /* ===== MAIN ===== */
 .main{flex:1;display:flex;flex-direction:column;min-width:0;height:100%;background:var(--bg)}
 
@@ -209,8 +212,12 @@ textarea{font-family:var(--font)}
   max-width:var(--w);margin:16px auto 0;background:#3a1a1a;color:#fca5a5;padding:10px 16px;
   border-radius:8px;font-size:13px;display:flex;align-items:center;gap:8px;border:1px solid #5a2020
 }
-.err button{margin-left:auto;background:none;border:none;color:#fca5a5;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:14px}
-.err button:hover{background:rgba(255,255,255,.08)}
+.err .err-spacer{flex:1}
+.err button{
+  background:rgba(252,165,165,.12);border:1px solid rgba(252,165,165,.25);color:#fca5a5;
+  cursor:pointer;padding:4px 10px;border-radius:6px;font-size:12px;transition:.15s;white-space:nowrap
+}
+.err button:hover{background:rgba(252,165,165,.22)}
 
 /* ===== COMPOSER ===== */
 .composer-area{padding:0 24px 20px;flex-shrink:0}
@@ -269,9 +276,15 @@ textarea{font-family:var(--font)}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .msg{animation:fadeIn .25s ease both}
 
+/* ===== TOUCH DEVICES ===== */
+@media(hover:none){
+  .msg-acts{opacity:1}
+}
+
 /* ===== RESPONSIVE ===== */
 @media(max-width:768px){
   .sidebar{position:absolute;z-index:60;box-shadow:4px 0 24px rgba(0,0,0,.4)}
+  .sidebar-overlay{display:block}
   .msg{padding:14px 16px}
   .msg-row{gap:12px}
   .composer-area{padding:0 12px 12px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
