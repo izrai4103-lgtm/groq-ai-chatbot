@@ -70,6 +70,25 @@ function CodeBlock({ lang, code }) {
   )
 }
 
+/* ===== DETEKSI KODE TANPA FENCE (fallback) ===== */
+function looksLikeCode(line) {
+  return (
+    /^ {3,}\S/.test(line) ||                 // indentasi 3+ spasi
+    /<[!\/]?[a-zA-Z][^>]*>/.test(line) ||    // tag/doctype HTML
+    /^\s*(?:function|const|let|var|def|class|import|export|return|from|print|if|for|while|switch|catch|async|await)\b/.test(line) ||
+    /[{};]\s*$/.test(line)                   // baris kode berakhiran { } ;
+  )
+}
+
+function detectLang(line) {
+  if (/<[!\/]?[a-zA-Z][^>]*>/.test(line)) return 'HTML'
+  if (/^\s*[.#]?[a-zA-Z-]+\s*\{/.test(line)) return 'CSS'
+  if (/^ {3,}[a-zA-Z-]+\s*:\s*[^;]+;/.test(line)) return 'CSS'
+  if (/^\s*(?:def|class|import|from|print)\b/.test(line) || /\bdef\s+\w+\s*\(/.test(line)) return 'Python'
+  if (/^\s*(?:function|const|let|var|async|await)\b/.test(line) || /=>/.test(line)) return 'JavaScript'
+  return 'Kode'
+}
+
 function parseBlocks(text) {
   // Pisahkan code blocks dari teks biasa
   const parts = text.split(/```(\w*)\n?([\s\S]*?)```/g)
@@ -94,14 +113,23 @@ function parseInlineBlocks(text) {
   const out = []
   let list = null
   let listType = null
+  let codeBuf = null
 
   for (const line of lines) {
     const trimmed = line.trim()
 
+    // Kode tanpa fence (fallback): indentasi, tag HTML, pola JS/CSS/Python
+    if (looksLikeCode(trimmed)) {
+      flushList()
+      if (!codeBuf) codeBuf = { lang: detectLang(trimmed), lines: [] }
+      codeBuf.lines.push(line)
+      continue
+    }
+
     // Heading
     const h = trimmed.match(/^(#{1,3})\s+(.+)$/)
     if (h) {
-      flushList()
+      flushList(); flushCode()
       const level = h[1].length
       const Tag = level === 1 ? 'h1' : level === 2 ? 'h2' : 'h3'
       out.push(<Tag key={out.length}>{parseInline(h[2])}</Tag>)
@@ -110,7 +138,7 @@ function parseInlineBlocks(text) {
 
     // Blockquote
     if (trimmed.startsWith('> ')) {
-      flushList()
+      flushList(); flushCode()
       out.push(<blockquote key={out.length}>{parseInline(trimmed.slice(2))}</blockquote>)
       continue
     }
@@ -119,9 +147,9 @@ function parseInlineBlocks(text) {
     const ul = trimmed.match(/^[-*•]\s+(.+)$/)
     const ol = trimmed.match(/^\d+[.)]\s+(.+)$/)
     if (ul || ol) {
+      flushList(); flushCode()
       const type = ul ? 'ul' : 'ol'
       if (!list || listType !== type) {
-        flushList()
         list = []
         listType = type
         out.push(<List key={`list-${out.length}`} type={type} items={list} />)
@@ -130,22 +158,30 @@ function parseInlineBlocks(text) {
       continue
     }
 
-    // Paragraf kosong = pemisah
+    // Paragraf kosong = pemisah (baris kosong di dalam kode tetap bagian kode)
     if (trimmed === '') {
       flushList()
+      if (codeBuf) { codeBuf.lines.push(''); continue }
       continue
     }
 
     // Paragraf biasa
-    flushList()
+    flushList(); flushCode()
     out.push(<p key={out.length}>{parseInline(trimmed)}</p>)
   }
 
   flushList()
+  flushCode()
   return out
 
   function flushList() {
     if (list) { list = null; listType = null }
+  }
+  function flushCode() {
+    if (codeBuf) {
+      out.push(<CodeBlock key={`cb-${out.length}`} lang={codeBuf.lang} code={codeBuf.lines.join('\n')} />)
+      codeBuf = null
+    }
   }
 }
 
