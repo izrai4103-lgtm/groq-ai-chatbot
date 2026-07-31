@@ -77,6 +77,23 @@ function StreamingText({ text, onTick, onDone }) {
   return <div className="msg-txt"><Markdown text={text.slice(0, n)} /></div>
 }
 
+/* ===== CLIPBOARD FALLBACK (copy tetap jalan walau API clipboard tak tersedia) ===== */
+function fallbackCopy(text) {
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch (e) {
+    return false
+  }
+}
+
 /* ===== MESSAGE ===== */
 function ChatMessage({
   msg, isLast, loading,
@@ -109,21 +126,21 @@ function ChatMessage({
                 </button>
               ) : (
                 <>
-                  <button className={`act-btn ${copied ? 'copy-done' : ''}`} title="Salin" onClick={() => onCopy(msg)}>
+                  <button className={`act-btn ${copied ? 'copy-done' : ''}`} title="Salin" aria-label="Salin pesan" aria-pressed={copied} onClick={() => onCopy(msg)}>
                     {copied ? (
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 6L9 17l-5-5" /></svg>
                     ) : (
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
                     )}
                   </button>
-                  <button className={`act-btn ${rating === 'up' ? 'rated' : ''}`} title="Suka" onClick={() => onRate(msg, 'up')}>
+                  <button className={`act-btn ${rating === 'up' ? 'rated' : ''}`} title="Suka" aria-label="Suka pesan ini" aria-pressed={rating === 'up'} onClick={() => onRate(msg, 'up')}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 10v12" /><path d="M15 5.88L14 10h5.83a2 2 0 011.92 2.56l-2.33 8A2 2 0 0115.5 22H8a2 2 0 01-2-2v-8a2 2 0 011-1.73l7-4a2 2 0 012.12.26l-1.12 1.35z" /></svg>
                   </button>
-                  <button className={`act-btn ${rating === 'down' ? 'rated' : ''}`} title="Tidak suka" onClick={() => onRate(msg, 'down')}>
+                  <button className={`act-btn ${rating === 'down' ? 'down' : ''}`} title="Tidak suka" aria-label="Tidak suka pesan ini" aria-pressed={rating === 'down'} onClick={() => onRate(msg, 'down')}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 14V2" /><path d="M9 18.12L10 14H4.17a2 2 0 01-1.92-2.56l2.33-8A2 2 0 018.5 2H16a2 2 0 012 2v8a2 2 0 01-1 1.73l-7 4a2 2 0 01-2.12-.26l1.12-1.35z" /></svg>
                   </button>
                   {isLast && !loading && (
-                    <button className="act-btn" title="Buat ulang" onClick={() => onRegenerate(msg)}>
+                    <button className="act-btn regen" title="Buat ulang" aria-label="Buat ulang jawaban" onClick={() => onRegenerate(msg)}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12a9 9 0 11-2.64-6.36" /><path d="M21 3v6h-6" /></svg>
                     </button>
                   )}
@@ -363,20 +380,29 @@ export default function Home() {
     const userMsg = [...before].reverse().find(m => m.role === 'user')
     if (!userMsg) return
     setMessages(before)
+    showToast('Membuat ulang jawaban...')
     send(before, userMsg.content)
-  }, [loading, messages, send])
+  }, [loading, messages, send, showToast])
 
   const rate = useCallback((msg, val) => {
-    setRatings(prev => ({ ...prev, [msg.id]: prev[msg.id] === val ? null : val }))
-  }, [])
+    const current = ratings[msg.id]
+    const next = current === val ? null : val
+    setRatings(prev => ({ ...prev, [msg.id]: next }))
+    showToast(next === null ? 'Penilaian dihapus' : next === 'up' ? 'Terima kasih! 👍' : 'Terima kasih atas masukannya 👎')
+  }, [ratings, showToast])
 
   const copy = useCallback((msg) => {
-    navigator.clipboard.writeText(msg.content).then(() => {
+    const done = () => {
       setCopiedId(msg.id)
       showToast('Pesan disalin!')
       clearTimeout(copiedTimer.current)
       copiedTimer.current = setTimeout(() => setCopiedId(null), 2000)
-    })
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(msg.content).then(done).catch(() => { if (fallbackCopy(msg.content)) done() })
+    } else if (fallbackCopy(msg.content)) {
+      done()
+    }
   }, [showToast])
 
   const finishStream = useCallback((id) => {

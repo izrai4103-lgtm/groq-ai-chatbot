@@ -1,0 +1,9 @@
+[package]
+name = "message_actions"
+version = "0.1.0"
+edition = "2021"
+description = "Logika tombol aksi pesan chatbot (like/dislike, copy, regenerate) — padanan Rust dari app/page.js"
+
+[lib]
+name = "message_actions"
+path = "src/lib.rs"
