@@ -377,17 +377,19 @@ async function analyzeImage(name: string, buffer: Buffer): Promise<VisionResult>
 /* ===== Dokumen: Vision membaca isi ===== */
 async function analyzeDocument(name: string, buffer: Buffer, ext: string): Promise<VisionResult> {
   let raw = ''
+  let extractError = ''
   try {
     raw = await extractText(buffer, ext)
   } catch (err) {
-    console.error('Extract text error:', err instanceof Error ? err.message : err)
+    extractError = err instanceof Error ? err.message : String(err)
+    console.error('Extract text error:', extractError)
   }
 
   if (!raw) {
     return {
       kind: 'document',
       name,
-      context: `[📎 LAMPIRAN: ${name} — tipe: dokumen]\n\nIsi dokumen tidak bisa diekstrak otomatis. Jawab berdasarkan nama file saja.`,
+      context: `[📎 LAMPIRAN: ${name} — tipe: dokumen]\n\nIsi dokumen tidak bisa diekstrak otomatis. ${extractError ? 'Detail teknis: ' + extractError : ''}`,
     }
   }
 
