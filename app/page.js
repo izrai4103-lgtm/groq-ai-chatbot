@@ -11,6 +11,11 @@ const SUGGESTIONS = [
   'Buatkan puisi tentang coding',
   'Apa perbedaan HTTP dan HTTPS?',
 ]
+const TIPS = [
+  'Aktifkan 🌐 Web Research untuk info terbaru',
+  'Pilih 🧠 Thinking untuk analisa mendalam',
+  'Coba 🗣️ Multi-AI — 4 model saling berdiskusi',
+]
 const MODELS = [
   { id: 'chat', icon: '💬', name: 'Groq AI', desc: 'Respons cepat & ramah' },
   { id: 'thinking', icon: '🧠', name: 'Thinking', desc: 'Analisa mendalam & logis' },
@@ -23,6 +28,11 @@ const ANIM_KEY = 'groq_anim_v1'
 let idCounter = 0
 const nextId = () => `m${++idCounter}-${Date.now()}`
 const truncate = (s, n = 34) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
+
+/* ===== UX EVENT LOG (ringan, console saja — tidak disimpan) ===== */
+function logUX(event, extra) {
+  try { console.debug(`[UX] ${event}`, extra || '') } catch (e) { /* ignore */ }
+}
 
 /* ===== STORAGE (JS: persistensi arsip di browser) ===== */
 function loadStore() {
@@ -238,6 +248,7 @@ export default function Home() {
   const [historyQuery, setHistoryQuery] = useState('')
   const [animPref, setAnimPref] = useState(loadAnimPref)
   const [showSettings, setShowSettings] = useState(false)
+  const [tipIdx, setTipIdx] = useState(0)
 
 
   const chatRef = useRef(null)
@@ -320,6 +331,7 @@ export default function Home() {
     if (!text || loading) return
     setLoading(true)
     setError('')
+    logUX('send', { model })
 
     // Jeda alami seperti manusia mengetik (0.3–0.9 dtk, hanya saat animasi aktif)
     if (animPref === 'on') {
@@ -369,12 +381,14 @@ export default function Home() {
 
       if (!content) throw new Error('Respon kosong')
 
+      logUX('delivered', { model })
       setMessages(prev => [
         ...prev.map(m => m.role === 'user' ? { ...m, status: 'read' } : m),
         { id: nextId(), role: 'assistant', content, streaming: true },
       ])
     } catch (err) {
       if (err.name === 'AbortError') return
+      logUX('error', err.message)
       setError(err.message || 'Gagal mendapatkan respon')
     } finally {
       setLoading(false)
@@ -560,6 +574,12 @@ export default function Home() {
   }, [handleSubmit])
 
   const greeting = messages.length === 1 && messages[0].role === 'assistant' && !messages[0].streaming
+
+  useEffect(() => {
+    if (!greeting) return
+    const t = setInterval(() => setTipIdx(i => (i + 1) % TIPS.length), 5000)
+    return () => clearInterval(t)
+  }, [greeting])
   const placeholder = model === 'conference'
     ? 'Masukkan topik diskusi 4 AI...'
     : model === 'research'
@@ -710,12 +730,14 @@ export default function Home() {
         <div className="chat" ref={chatRef} onScroll={handleScroll}>
           {greeting ? (
             <div className="greet">
+              <div className="greet-badge">⚡ Powered by Groq AI</div>
               <h1>Ada yang bisa saya bantu?</h1>
               <div className="greet-grid">
                 {SUGGESTIONS.map((s, i) => (
-                  <button key={i} className="greet-btn" onClick={() => pickSuggestion(s)}>{s}</button>
+                  <button key={i} className="greet-btn" style={{ animationDelay: `${i * 70}ms` }} onClick={() => pickSuggestion(s)}>{s}</button>
                 ))}
               </div>
+              <div className="greet-tip" key={tipIdx}>💡 {TIPS[tipIdx]}</div>
             </div>
           ) : (
             <div className="chat-inner">
@@ -831,7 +853,11 @@ export default function Home() {
                   aria-checked={animPref === 'on'}
                   aria-label="Animasi halus"
                   className={`switch ${animPref === 'on' ? 'on' : ''}`}
-                  onClick={() => setAnimPref(p => (p === 'on' ? 'off' : 'on'))}
+                  onClick={() => {
+                    const next = animPref === 'on' ? 'off' : 'on'
+                    logUX('anim_toggle', next)
+                    setAnimPref(next)
+                  }}
                 >
                   <span className="switch-knob" />
                 </button>
