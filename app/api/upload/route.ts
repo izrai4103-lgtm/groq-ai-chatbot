@@ -1,6 +1,9 @@
 import { runChat } from '@/lib/engine/engine'
 import { runVisionPipeline } from '@/lib/engine/vision'
-import type { EngineErrorCode } from '@/lib/engine/types'
+import { JailbreakScanner, verdictToError } from '@/lib/jailbreak-scanner'
+import type { EngineErrorCode, ScanResult } from '@/lib/engine/types'
+
+const jailbreakScanner = new JailbreakScanner()
 
 const STATUS_MAP: Record<EngineErrorCode, number> = {
   INVALID_INPUT: 400,
@@ -51,12 +54,18 @@ export async function POST(request: Request) {
     // 2) PILLOW → analisis gambar (fallback sharp di Vercel)
     const vision = await runVisionPipeline(file)
 
-    // 3) SANDBOX → validasi, jailbreak scan, rate limit, models AI
-    const userText = message || 'Analisis lampiran ini'
-    const content = `${userText}\n\n${vision.context}`.slice(0, 7900)
-    const messages = [...history, { role: 'user' as const, content }]
+    // 3) SANDBOX → jailbreak scan konteks lampiran (anti prompt-injection via file)
+    const scan = await jailbreakScanner.scan(vision.context, ip) as ScanResult
+    if (scan.verdict === 'banned' || scan.verdict === 'block') {
+      const scanErr = verdictToError(scan) as { code: string; message: string }
+      return Response.json({ error: scanErr.message }, { status: 403 })
+    }
 
-    const result = await runChat(messages, ip)
+    // 4) Konteks vision masuk system prompt (sandbox) → models AI
+    const userText = message || 'Analisis lampiran ini'
+    const messages = [...history, { role: 'user' as const, content: userText }]
+
+    const result = await runChat(messages, ip, vision.context)
     const headers: Record<string, string> = {
       'X-RateLimit-Remaining': String(result.meta.rateLimit?.remaining ?? ''),
       'X-RateLimit-Reset': String(result.meta.rateLimit?.resetAt ?? ''),

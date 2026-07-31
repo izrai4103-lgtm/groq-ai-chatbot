@@ -72,7 +72,11 @@ function ok(content: string, meta: EngineResult['meta'] = {}): EngineResult {
  * CHAT — pipeline penuh (validasi -> sanitasi -> filter -> scan
  * jailbreak -> rate limit -> panggil model Groq)
  * ============================================================ */
-export async function runChat(messages: unknown, ip: string | undefined): Promise<EngineResult> {
+export async function runChat(
+  messages: unknown,
+  ip: string | undefined,
+  context?: string,
+): Promise<EngineResult> {
   const clientIp = ip || 'anonymous'
 
   try {
@@ -127,8 +131,10 @@ export async function runChat(messages: unknown, ip: string | undefined): Promis
       )
     }
 
-    // 7. Eksekusi model (terisolasi)
-    const content = await callGroq('chat', `${ZANCO_PERSONA}\n\n${JAILBREAK_POLICY_PROMPT}`, filtered)
+    // 7. Eksekusi model (terisolasi) — konteks lampiran (vision/pillow) masuk system prompt
+    const baseSystem = `${ZANCO_PERSONA}\n\n${JAILBREAK_POLICY_PROMPT}`
+    const systemPrompt = context ? `${baseSystem}\n\n${context}` : baseSystem
+    const content = await callGroq('chat', systemPrompt, filtered)
     return ok(content, meta)
   } catch (e) {
     if (e instanceof EngineError) {

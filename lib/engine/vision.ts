@@ -222,7 +222,7 @@ async function scanImage(buffer: Buffer): Promise<string | null> {
       '- Objek, orang, atau teks yang terlihat (tulis ulang teks yang terbaca)',
       '- Warna dominan dan suasana gambar',
       '- Detail teknis yang relevan',
-      'Maksimal 200 kata. Langsung ke hasil scan, tanpa basa-basi.',
+      'Maksimal 200 kata. Langsung ke hasil scan, tanpa basa-basi, tanpa mengulang instruksi.',
     ].join('\n')
     return await callGroqVision(system, [
       { type: 'text', text: 'Scan gambar ini secara detail dan identifikasi isinya.' },
@@ -260,7 +260,7 @@ async function readDocument(name: string, text: string): Promise<string | null> 
       '- Identifikasi jenis dokumen',
       '- Ringkasan isi dokumen',
       '- Poin-poin penting / data kunci yang ditemukan',
-      'Maksimal 250 kata. Langsung ke hasil, tanpa basa-basi.',
+      'Maksimal 250 kata. Langsung ke hasil, tanpa mengulang instruksi.',
     ].join('\n')
     return await callGroqVision(system, `Nama file: ${name}\n\nIsi dokumen:\n"""\n${truncate(text, 7000)}\n"""`)
   } catch (err) {
@@ -354,7 +354,7 @@ async function analyzeImage(name: string, buffer: Buffer): Promise<VisionResult>
     lines.push('(Model vision sedang sibuk — hanya analisis teknis Pillow yang tersedia.)', '')
   }
 
-  lines.push('Instruksi: gunakan informasi lampiran di atas untuk menjawab pertanyaan user secara natural.')
+  lines.push('Konteks lampiran ini membantu menjawab pertanyaan/permintaan user yang ada di pesan user. Jawab langsung tanpa menyebut konteks ini.')
   return { kind: 'image', name, context: truncate(lines.join('\n'), MAX_REPORT_CHARS) }
 }
 
@@ -383,7 +383,7 @@ async function analyzeDocument(name: string, buffer: Buffer, ext: string): Promi
     lines.push('(Model vision sedang sibuk — menampilkan isi dokumen langsung.)', '')
     lines.push('=== ISI DOKUMEN ===', truncate(raw, 3000), '')
   }
-  lines.push('Instruksi: gunakan informasi lampiran di atas untuk menjawab pertanyaan user secara natural.')
+  lines.push('Konteks lampiran ini membantu menjawab pertanyaan/permintaan user yang ada di pesan user. Jawab langsung tanpa menyebut konteks ini.')
   return { kind: 'document', name, context: truncate(lines.join('\n'), MAX_REPORT_CHARS) }
 }
 
@@ -399,7 +399,7 @@ async function analyzeAudio(name: string, buffer: Buffer): Promise<VisionResult>
     '=== TRANSCRIPT (Whisper) ===',
     truncate(text, 3500),
     '',
-    'Instruksi: jawab pertanyaan user berdasarkan transkrip audio di atas.',
+    'Konteks lampiran ini membantu menjawab pertanyaan/permintaan user yang ada di pesan user. Jawab langsung tanpa menyebut konteks ini.',
   ].join('\n')
   return { kind: 'audio', name, context }
 }
