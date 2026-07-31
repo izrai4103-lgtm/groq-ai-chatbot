@@ -9,7 +9,7 @@ export async function POST(request) {
       return Response.json({ error: 'Question diperlukan' }, { status: 400 })
     }
 
-    if (question.length > 1000) {
+    if (question.length > 8000) {
       return Response.json({ error: 'Pertanyaan terlalu panjang' }, { status: 400 })
     }
 

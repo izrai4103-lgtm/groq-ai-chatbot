@@ -8,7 +8,7 @@ export async function POST(request) {
     if (!topic || typeof topic !== 'string') {
       return Response.json({ error: 'Topik diperlukan' }, { status: 400 })
     }
-    if (topic.length > 500) {
+    if (topic.length > 8000) {
       return Response.json({ error: 'Topik terlalu panjang' }, { status: 400 })
     }
 

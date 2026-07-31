@@ -18,7 +18,6 @@ const MODELS = [
   { id: 'conference', icon: '🗣️', name: 'Multi-AI', desc: '4 model saling diskusi' },
 ]
 const STORAGE_KEY = 'groq_chats_v1'
-const DEVICE_KEY = 'groq_device_greet_v1'
 
 let idCounter = 0
 const nextId = () => `m${++idCounter}-${Date.now()}`
@@ -42,102 +41,6 @@ function saveStore(chats, activeId) {
   } catch (e) { /* ignore */ }
 }
 
-
-/* ===== DEVICE (JS: baca detail device, izin wajib) ===== */
-function parseUA() {
-  const ua = navigator.userAgent
-  let browser = 'Browser tidak diketahui'
-  const b = [
-    [/Edg\/([\d.]+)/, 'Microsoft Edge'],
-    [/OPR\/([\d.]+)/, 'Opera'],
-    [/Chrome\/([\d.]+)/, 'Google Chrome'],
-    [/Firefox\/([\d.]+)/, 'Mozilla Firefox'],
-    [/Safari\/([\d.]+)/, 'Safari'],
-  ]
-  for (const [re, name] of b) {
-    const m = ua.match(re)
-    if (m) { browser = `${name} ${m[1]}`; break }
-  }
-  let os = 'OS tidak diketahui'
-  const o = [
-    [/Windows NT 10/, 'Windows 10/11'],
-    [/Windows NT 6\.1/, 'Windows 7'],
-    [/Android/, 'Android'],
-    [/iPhone/, 'iOS (iPhone)'],
-    [/iPad/, 'iPadOS'],
-    [/Mac OS X/, 'macOS'],
-    [/Linux/, 'Linux'],
-  ]
-  for (const [re, name] of o) {
-    if (re.test(ua)) { os = name; break }
-  }
-  return { browser, os }
-}
-
-async function collectDeviceInfo() {
-  const { browser, os } = parseUA()
-  const info = {
-    os,
-    browser,
-    layar: `${screen.width} × ${screen.height} px (${Math.round(window.devicePixelRatio || 1)}x)`,
-    warna: `${screen.colorDepth}-bit`,
-    prosesor: navigator.hardwareConcurrency ? `${navigator.hardwareConcurrency} core` : 'tidak diketahui',
-    memori: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : 'tidak tersedia',
-    bahasa: navigator.language || 'tidak diketahui',
-    zonaWaktu: (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'tidak diketahui',
-    sentuh: navigator.maxTouchPoints > 0 ? `${navigator.maxTouchPoints} titik sentuh` : 'tidak didukung',
-    jaringan: 'terhubung ke internet',
-    baterai: 'tidak diketahui',
-    lokasi: 'tidak diberikan',
-  }
-  try {
-    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection
-    if (conn) {
-      const type = conn.effectiveType ? String(conn.effectiveType).toUpperCase() : 'Jaringan'
-      info.jaringan = `${type} (~${conn.downlink || '?'} Mbps)`
-    }
-  } catch (e) { /* ignore */ }
-  try {
-    if (navigator.getBattery) {
-      const b = await navigator.getBattery()
-      info.baterai = `${Math.round(b.level * 100)}%${b.charging ? ' (mengisi daya)' : ''}`
-    }
-  } catch (e) { /* ignore */ }
-  try {
-    if (navigator.geolocation) {
-      const pos = await new Promise((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000, maximumAge: 60000 })
-      )
-      const { latitude, longitude, accuracy } = pos.coords
-      info.lokasi = `${latitude.toFixed(4)}, ${longitude.toFixed(4)} (±${Math.round(accuracy)} m)`
-    }
-  } catch (e) { info.lokasi = 'izin lokasi ditolak di browser' }
-  return info
-}
-
-function buildDeviceGreeting(info) {
-  const rows = [
-    ['🖥️ OS / Platform', info.os],
-    ['🌐 Browser', info.browser],
-    ['📺 Layar', info.layar],
-    ['🎨 Kedalaman warna', info.warna],
-    ['⚙️ Prosesor', info.prosesor],
-    ['💾 Memori (RAM)', info.memori],
-    ['🌍 Bahasa', info.bahasa],
-    ['🕒 Zona waktu', info.zonaWaktu],
-    ['📡 Jaringan', info.jaringan],
-    ['🔋 Baterai', info.baterai],
-    ['📍 Lokasi', info.lokasi],
-    ['👆 Sentuh', info.sentuh],
-  ]
-  return `Halo **BrutalStrike**! 👋 Aku **Groq AI** sudah terhubung dengan device-mu dan izin akses telah diberikan. ✅
-
-Berikut detail perangkat yang sedang kamu pakai:
-
-${rows.map(([k, v]) => `- **${k}:** ${v}`).join('\n')}
-
-Ada yang ingin kamu tanyakan? Aku siap membantu! 🚀`
-}
 
 /* ===== ICONS ===== */
 const ICONS = {
@@ -277,17 +180,7 @@ export default function Home() {
   const [copiedId, setCopiedId] = useState(null)
   const [toast, setToast] = useState('')
   const [historyQuery, setHistoryQuery] = useState('')
-  const [deviceAllowed, setDeviceAllowed] = useState(() => {
-    try {
-      const raw = localStorage.getItem(DEVICE_KEY)
-      if (raw) {
-        const p = JSON.parse(raw)
-        if (p && p.allowed === true) return true
-      }
-    } catch (e) { /* ignore */ }
-    return false
-  })
-  const [deviceLoading, setDeviceLoading] = useState(false)
+
 
   const chatRef = useRef(null)
   const taRef = useRef(null)
@@ -336,25 +229,7 @@ export default function Home() {
     toastTimer.current = setTimeout(() => setToast(''), 2200)
   }, [])
 
-  /* ===== IZIN DEVICE (wajib: tanpa izin, chatbot tidak bisa dibuka) ===== */
-  const allowDevice = useCallback(async () => {
-    if (deviceLoading) return
-    setDeviceLoading(true)
-    try {
-      const info = await collectDeviceInfo()
-      try {
-        localStorage.setItem(DEVICE_KEY, JSON.stringify({ allowed: true, seen: true }))
-      } catch (e) { /* ignore */ }
-      setMessages([{ id: nextId(), role: 'assistant', content: buildDeviceGreeting(info) }])
-      setChatTitle('Sapaan dari Groq AI')
-      setDeviceAllowed(true)
-      showToast('Izin device diberikan ✅')
-    } catch (e) {
-      showToast('Gagal membaca device, coba lagi')
-    } finally {
-      setDeviceLoading(false)
-    }
-  }, [deviceLoading, showToast])
+
 
   const handleScroll = useCallback(() => {
     if (!chatRef.current) return
@@ -616,33 +491,6 @@ export default function Home() {
 
   const activeChats = [...chats].filter(c => !c.archived).sort((a, b) => b.updatedAt - a.updatedAt)
   const archivedChats = [...chats].filter(c => c.archived).sort((a, b) => b.updatedAt - a.updatedAt)
-
-  /* ===== GATE: izin device WAJIB ===== */
-  if (!deviceAllowed) {
-    return (
-      <div className="gate">
-        <div className="gate-card">
-          <div className="gate-ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 018 0v4" /><circle cx="12" cy="16" r="1" /></svg>
-          </div>
-          <h1>Izinkan Akses Device</h1>
-          <p>Untuk membuka chatbot ini, kamu <strong>wajib</strong> memberikan izin akses device. Tanpa izin, chatbot tidak dapat digunakan.</p>
-          <div className="gate-list">
-            <span>🖥️ Sistem operasi & browser</span>
-            <span>📺 Resolusi layar & kedalaman warna</span>
-            <span>⚙️ Prosesor & memori (RAM)</span>
-            <span>🔋 Baterai & jaringan</span>
-            <span>🌍 Bahasa & zona waktu</span>
-            <span>📍 Lokasi (ikut izin browser)</span>
-          </div>
-          <button className="gate-btn" onClick={allowDevice} disabled={deviceLoading}>
-            {deviceLoading ? 'Membaca device…' : 'Izinkan Akses Device'}
-          </button>
-          <p className="gate-note">Akses ini bersifat wajib dan tidak bisa dilewati untuk memakai chatbot.</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="layout">
