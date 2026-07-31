@@ -18,6 +18,7 @@ const MODELS = [
   { id: 'conference', icon: '🗣️', name: 'Multi-AI', desc: '4 model saling diskusi' },
 ]
 const STORAGE_KEY = 'groq_chats_v1'
+const ANIM_KEY = 'groq_anim_v1'
 
 let idCounter = 0
 const nextId = () => `m${++idCounter}-${Date.now()}`
@@ -39,6 +40,13 @@ function saveStore(chats, activeId) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ chats, activeId }))
   } catch (e) { /* ignore */ }
+}
+
+function loadAnimPref() {
+  try {
+    return localStorage.getItem(ANIM_KEY) === 'off' ? 'off' : 'on'
+  } catch (e) { /* ignore */ }
+  return 'on'
 }
 
 
@@ -102,9 +110,19 @@ function ChatMessage({
   if (msg.role === 'system') return null
   const isUser = msg.role === 'user'
   const showActions = !isUser ? !msg.streaming : !loading
+  const len = (msg.content || '').length
+  const cls = ['msg', isUser ? 'user' : 'assistant']
+  if (msg.entry) cls.push('entry')
+  if (isUser) {
+    cls.push(len < 90 ? 'short' : len > 240 ? 'long' : 'med')
+  } else {
+    cls.push(len > 240 ? 'long' : len < 80 ? 'short' : 'med')
+    if (/(\*\*|```|^\s*[-*] |^\s*\d+\. )/m.test(msg.content)) cls.push('rich')
+    if (msg.content.trim().endsWith('?')) cls.push('ask')
+  }
 
   return (
-    <div className={`msg ${isUser ? 'user' : 'assistant'}`}>
+    <div className={cls.join(' ')}>
       <div className="msg-row">
         <div className="msg-av">
           <div className={`av ${isUser ? 'user' : 'assistant'}`}>
@@ -148,19 +166,40 @@ function ChatMessage({
               )}
             </div>
           )}
+
+          {isUser && msg.status && (
+            <div className="msg-meta">
+              <span className={`msg-status ${msg.status}`} title={msg.status === 'read' ? 'Dibaca' : 'Terkirim'}>
+                {msg.status === 'read' ? '✓✓' : '✓'}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-/* ===== TYPING ===== */
-function TypingIndicator() {
+/* ===== TYPING (loader kontekstual per model) ===== */
+const TYPING_LABELS = {
+  chat: 'Mengetik…',
+  thinking: 'Menganalisa…',
+  research: 'Mencari di web…',
+  conference: 'Menyusun diskusi…',
+}
+
+function TypingIndicator({ model = 'chat' }) {
+  const label = TYPING_LABELS[model] || 'Mengetik…'
   return (
     <div className="msg assistant">
       <div className="msg-row">
         <div className="msg-av"><div className="av assistant">AI</div></div>
-        <div className="msg-c"><div className="typing"><span></span><span></span><span></span></div></div>
+        <div className="msg-c">
+          <div className={`typing ${model}`}>
+            <span></span><span></span><span></span>
+            <span className="typ-label">{label}</span>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -197,6 +236,8 @@ export default function Home() {
   const [copiedId, setCopiedId] = useState(null)
   const [toast, setToast] = useState('')
   const [historyQuery, setHistoryQuery] = useState('')
+  const [animPref, setAnimPref] = useState(loadAnimPref)
+  const [showSettings, setShowSettings] = useState(false)
 
 
   const chatRef = useRef(null)
@@ -211,6 +252,10 @@ export default function Home() {
   useEffect(() => {
     saveStore(chats, activeId)
   }, [chats, activeId])
+
+  useEffect(() => {
+    try { localStorage.setItem(ANIM_KEY, animPref) } catch (e) { /* ignore */ }
+  }, [animPref])
 
   // Sinkronkan pesan aktif ke daftar chats (hanya jika sudah ada pesan user)
   useEffect(() => {
@@ -276,6 +321,11 @@ export default function Home() {
     setLoading(true)
     setError('')
 
+    // Jeda alami seperti manusia mengetik (0.3–0.9 dtk, hanya saat animasi aktif)
+    if (animPref === 'on') {
+      await new Promise(r => setTimeout(r, 300 + Math.random() * 600))
+    }
+
     const controller = new AbortController()
     abortRef.current = controller
 
@@ -319,7 +369,10 @@ export default function Home() {
 
       if (!content) throw new Error('Respon kosong')
 
-      setMessages(prev => [...prev, { id: nextId(), role: 'assistant', content, streaming: true }])
+      setMessages(prev => [
+        ...prev.map(m => m.role === 'user' ? { ...m, status: 'read' } : m),
+        { id: nextId(), role: 'assistant', content, streaming: true },
+      ])
     } catch (err) {
       if (err.name === 'AbortError') return
       setError(err.message || 'Gagal mendapatkan respon')
@@ -327,7 +380,7 @@ export default function Home() {
       setLoading(false)
       abortRef.current = null
     }
-  }, [loading, model, webSearch])
+  }, [loading, model, webSearch, animPref])
 
   const handleSubmit = useCallback((e) => {
     e?.preventDefault()
@@ -337,7 +390,7 @@ export default function Home() {
     // Buat chat baru kalau belum ada
     if (!activeId) setActiveId(nextId())
 
-    const userMsg = { id: nextId(), role: 'user', content: text }
+    const userMsg = { id: nextId(), role: 'user', content: text, entry: true, status: 'sent' }
     const all = [...messages, userMsg]
     setMessages(all)
     setInput('')
@@ -519,7 +572,7 @@ export default function Home() {
   const archivedChats = [...chats].filter(c => c.archived).sort((a, b) => b.updatedAt - a.updatedAt)
 
   return (
-    <div className="layout">
+    <div className={`layout ${animPref === 'off' ? 'anim-off' : ''}`}>
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
       {/* ===== SIDEBAR ===== */}
@@ -601,7 +654,7 @@ export default function Home() {
               </button>
             </>
           )}
-          <button className="sidebar-bt-item" onClick={() => showToast('Fitur Setelan segera hadir')}>
+          <button className="sidebar-bt-item" onClick={() => setShowSettings(true)}>
             <svg viewBox="0 0 24 24" fill="none" strokeLinecap="round"><circle cx="12" cy="12" r="3" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m9.9 9.9l2.1 2.1m0-14.1l-2.1 2.1M7 17.1l-2.1 2.1" /></svg>
             Setelan
           </button>
@@ -647,7 +700,7 @@ export default function Home() {
             <button className="topbar-btn" onClick={share} title="Bagikan">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" /></svg>
             </button>
-            <button className="topbar-btn" title="Lainnya" onClick={() => showToast('Menu lainnya segera hadir')}>
+            <button className="topbar-btn" title="Setelan" onClick={() => setShowSettings(true)}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></svg>
             </button>
           </div>
@@ -682,7 +735,7 @@ export default function Home() {
                   onStreamTick={() => autoScroll(false)}
                 />
               ))}
-              {loading && <TypingIndicator />}
+              {loading && <TypingIndicator model={model} />}
               {error && (
                 <div className="err">
                   <span>⚠️</span> {error}
@@ -756,6 +809,36 @@ export default function Home() {
             <div className="composer-hint">Groq AI dapat membuat kesalahan. Periksa informasi penting.</div>
           </div>
         </div>
+
+        {/* SETTINGS */}
+        {showSettings && (
+          <div className="settings-overlay" onClick={() => setShowSettings(false)}>
+            <div className="settings" role="dialog" aria-modal="true" aria-label="Setelan" onClick={e => e.stopPropagation()}>
+              <div className="settings-hd">
+                <h3>Setelan</h3>
+                <button className="settings-close" onClick={() => setShowSettings(false)} aria-label="Tutup setelan">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="setting-row">
+                <div>
+                  <div className="setting-nm">Animasi halus</div>
+                  <div className="setting-ds">Fade lembut, micro-interaction & jeda respons alami.</div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={animPref === 'on'}
+                  aria-label="Animasi halus"
+                  className={`switch ${animPref === 'on' ? 'on' : ''}`}
+                  onClick={() => setAnimPref(p => (p === 'on' ? 'off' : 'on'))}
+                >
+                  <span className="switch-knob" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* TOAST */}
         {toast && <div className="toast">{toast}</div>}
