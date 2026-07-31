@@ -7,6 +7,7 @@ import { JailbreakScanner, JAILBREAK_POLICY_PROMPT, verdictToError } from '../ja
 import { thinkAndResearch } from '../code-executor'
 import { holdConference } from '../model-conference'
 import { callGroq, EngineError } from './groq'
+import { ZANCO_PERSONA } from '../persona'
 import { checkRateLimit } from './rate-limit'
 import type { ChatMessage, EngineErrorCode, EngineResult, ScanResult } from './types'
 
@@ -127,7 +128,7 @@ export async function runChat(messages: unknown, ip: string | undefined): Promis
     }
 
     // 7. Eksekusi model (terisolasi)
-    const content = await callGroq('chat', JAILBREAK_POLICY_PROMPT, filtered)
+    const content = await callGroq('chat', `${ZANCO_PERSONA}\n\n${JAILBREAK_POLICY_PROMPT}`, filtered)
     return ok(content, meta)
   } catch (e) {
     if (e instanceof EngineError) {

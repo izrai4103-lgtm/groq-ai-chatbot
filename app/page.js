@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, Fragment } from 'react'
 import Markdown from './Markdown'
 
 /* ===== CONSTANTS ===== */
-const WELCOME = 'Halo! Aku Groq AI Chatbot. Ada yang bisa aku bantu?'
+const WELCOME = 'Halo! Aku Zanco-Ai. Ada yang bisa aku bantu?'
 const SUGGESTIONS = [
   'Apa itu artificial intelligence?',
   'Jelaskan cara kerja blockchain',
@@ -17,7 +17,7 @@ const TIPS = [
   'Coba 🗣️ Multi-AI — 4 model saling berdiskusi',
 ]
 const MODELS = [
-  { id: 'chat', icon: '💬', name: 'Groq AI', desc: 'Respons cepat & ramah' },
+  { id: 'chat', icon: '💬', name: 'Zanco-Ai', desc: 'Respons cepat & ramah' },
   { id: 'thinking', icon: '🧠', name: 'Thinking', desc: 'Analisa mendalam & logis' },
   { id: 'research', icon: '🔍', name: 'Web Research', desc: 'Cari informasi faktual' },
   { id: 'conference', icon: '🗣️', name: 'Multi-AI', desc: '4 model saling diskusi' },
@@ -229,7 +229,7 @@ export default function Home() {
   })
   const [chatTitle, setChatTitle] = useState(() => {
     const c = initial.chats.find(c => c.id === initial.activeId)
-    return c?.title ?? 'Groq AI Chatbot'
+    return c?.title ?? 'Zanco-Ai'
   })
 
   const [input, setInput] = useState('')
@@ -482,7 +482,7 @@ export default function Home() {
     setLoading(false)
     setActiveId(null)
     setMessages([{ id: nextId(), role: 'assistant', content: WELCOME }])
-    setChatTitle('Groq AI Chatbot')
+    setChatTitle('Zanco-Ai')
     setError(''); setInput(''); setFile(null); setRatings({}); setWebSearch(false)
     setShowArchive(false)
     taRef.current?.focus()
@@ -507,7 +507,7 @@ export default function Home() {
     if (id === activeId) {
       setActiveId(null)
       setMessages([{ id: nextId(), role: 'assistant', content: WELCOME }])
-      setChatTitle('Groq AI Chatbot')
+      setChatTitle('Zanco-Ai')
       setError(''); setInput('')
     }
     showToast('Chat diarsipkan')
@@ -529,7 +529,7 @@ export default function Home() {
     if (id === activeId) {
       setActiveId(null)
       setMessages([{ id: nextId(), role: 'assistant', content: WELCOME }])
-      setChatTitle('Groq AI Chatbot')
+      setChatTitle('Zanco-Ai')
       setError(''); setInput('')
     }
     showToast('Chat dihapus')
