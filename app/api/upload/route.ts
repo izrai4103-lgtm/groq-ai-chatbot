@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     }
 
     return Response.json(
-      { content: result.content, vision: { kind: vision.kind, name: vision.name } },
+      { content: result.content, vision: { kind: vision.kind, name: vision.name, detail: vision.detail } },
       { headers },
     )
   } catch (err) {

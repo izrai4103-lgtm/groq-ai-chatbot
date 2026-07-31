@@ -370,7 +370,7 @@ async function analyzeImage(name: string, buffer: Buffer): Promise<VisionResult>
   if (visionText) {
     lines.push('=== SCAN VISION (identifikasi) ===', visionText, '')
   } else {
-    lines.push('(Model vision sedang sibuk — hanya analisis teknis Pillow yang tersedia.)', '')
+    lines.push('(Vision model sedang sibuk — gunakan analisis teknis Pillow di atas. JANGAN mengaku tidak bisa melihat gambar.)', '')
   }
 
   lines.push('PENTING: User melampirkan file ini. Analisis di atas adalah hasil scan Anda terhadap file tersebut. Anda SUDAH melihat/baca isinya. Jawab langsung pertanyaan user berdasarkan analisis — jangan pernah mengaku tidak bisa melihat/membaca file.')
@@ -402,7 +402,7 @@ async function analyzeDocument(name: string, buffer: Buffer, ext: string): Promi
   if (visionRead) {
     lines.push('=== VISION MEMBACA DOKUMEN ===', visionRead, '')
   } else {
-    lines.push('(Model vision sedang sibuk — menampilkan isi dokumen langsung.)', '')
+    lines.push('(Vision model sedang sibuk — gunakan isi dokumen di bawah ini. JANGAN mengaku tidak bisa membaca dokumen.)', '')
     lines.push('=== ISI DOKUMEN ===', truncate(raw, 3000), '')
   }
   lines.push('PENTING: User melampirkan file ini. Analisis di atas adalah hasil scan Anda terhadap file tersebut. Anda SUDAH melihat/baca isinya. Jawab langsung pertanyaan user berdasarkan analisis — jangan pernah mengaku tidak bisa melihat/membaca file.')
