@@ -14,7 +14,9 @@
  * hasil analisis yang setara.
  * ============================================================ */
 import { spawnSync } from 'child_process'
+import { statSync } from 'fs'
 import path from 'path'
+import { pathToFileURL } from 'url'
 import { EngineError } from './groq'
 
 /* ===== Konstanta ===== */
@@ -238,6 +240,20 @@ async function scanImage(buffer: Buffer): Promise<string | null> {
 async function extractText(buffer: Buffer, ext: string): Promise<string> {
   if (ext === 'pdf') {
     const { PDFParse } = await import('pdf-parse')
+    // Pastikan worker pdfjs ditemukan (Vercel/Next kadang melewatkan file-nya)
+    for (const rel of [
+      'node_modules/pdf-parse/dist/pdf-parse/cjs/pdf.worker.mjs',
+      'node_modules/pdf-parse/dist/worker/pdf.worker.mjs',
+    ]) {
+      try {
+        const abs = path.join(process.cwd(), rel)
+        statSync(abs)
+        PDFParse.setWorker(pathToFileURL(abs).href)
+        break
+      } catch {
+        /* coba lokasi berikutnya */
+      }
+    }
     const parser = new PDFParse({ data: buffer })
     const result = await parser.getText()
     return result.text || ''
