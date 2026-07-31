@@ -26,10 +26,14 @@ class ArchiveManager(context: Context) {
     /* ===== JS: loadStore() — baca semua chat + status arsip ===== */
     fun load(): List<ChatEntry> {
         val raw = prefs.getString(KEY_CHATS, null) ?: return emptyList()
-        return try {
-            val arr = JSONArray(raw)
-            buildList {
-                for (i in 0 until arr.length()) {
+        val arr = try {
+            JSONArray(raw)
+        } catch (e: Exception) {
+            return emptyList()
+        }
+        return buildList {
+            for (i in 0 until arr.length()) {
+                try {
                     val obj = arr.getJSONObject(i)
                     add(
                         ChatEntry(
@@ -40,10 +44,10 @@ class ArchiveManager(context: Context) {
                             messages = obj.optJSONArray("messages").toList()
                         )
                     )
+                } catch (e: Exception) {
+                    // Lewati entri yang rusak, jangan hapus data lain
                 }
             }
-        } catch (e: Exception) {
-            emptyList()
         }
     }
 
@@ -57,7 +61,7 @@ class ArchiveManager(context: Context) {
                     put("title", c.title)
                     put("archived", c.archived)
                     put("updatedAt", c.updatedAt)
-                    put("messages", JSONArray(c.messages))
+                    put("messages", messagesToJSON(c.messages))
                 }
             )
         }
@@ -99,8 +103,30 @@ class ArchiveManager(context: Context) {
 
     private fun JSONArray?.toList(): List<String> {
         if (this == null) return emptyList()
-        return buildList { for (i in 0 until length()) add(getString(i)) }
+        return buildList {
+            for (i in 0 until length()) {
+                when (val el = get(i)) {
+                    is String -> add(el)
+                    is JSONObject -> add(el.optString("content", el.toString()))
+                    else -> add(el.toString())
+                }
+            }
+        }
     }
+
+    /* ===== JS: messages disimpan sebagai array objek {id, role, content} ===== */
+    private fun messagesToJSON(messages: List<String>): JSONArray =
+        JSONArray().apply {
+            for (m in messages) {
+                put(
+                    JSONObject().apply {
+                        put("id", "m-${System.nanoTime()}")
+                        put("role", "assistant")
+                        put("content", m)
+                    }
+                )
+            }
+        }
 
     companion object {
         private const val PREFS_KEY = "groq_chats_v1"

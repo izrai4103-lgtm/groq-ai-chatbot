@@ -73,6 +73,7 @@ textarea{font-family:var(--font)}
 .sidebar-item svg{width:16px;height:16px;flex-shrink:0;stroke:var(--text-sec)}
 .sidebar-item:hover svg{stroke:var(--text)}
 .sidebar-item.active svg{stroke:var(--text)}
+.sidebar-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .sidebar-bt{border-top:1px solid var(--border);padding:4px 4px}
 .sidebar-bt-item{
@@ -188,8 +189,8 @@ textarea{font-family:var(--font)}
 .msg-txt a:hover{text-decoration:underline}
 
 /* ===== MESSAGE ACTIONS ===== */
-.msg-acts{display:flex;gap:2px;margin-top:8px;opacity:0;transition:opacity .15s}
-.msg:hover .msg-acts,.msg-acts.force{opacity:1}
+.msg-acts{display:flex;gap:2px;margin-top:8px;opacity:0;transition:opacity .15s;pointer-events:none}
+.msg:hover .msg-acts,.msg-acts.force{opacity:1;pointer-events:auto}
 .act-btn{
   width:28px;height:28px;border-radius:6px;border:none;background:transparent;color:var(--text-muted);
   display:flex;align-items:center;justify-content:center;transition:.15s
@@ -215,7 +216,7 @@ textarea{font-family:var(--font)}
 .err .err-spacer{flex:1}
 .err button{
   background:rgba(252,165,165,.12);border:1px solid rgba(252,165,165,.25);color:#fca5a5;
-  cursor:pointer;padding:4px 10px;border-radius:6px;font-size:12px;transition:.15s;white-space:nowrap
+  cursor:pointer;padding:4px 10px;border-radius:6px;font-size:12px;transition:.15s;white-space:nowrap;flex-shrink:0
 }
 .err button:hover{background:rgba(252,165,165,.22)}
 
@@ -273,12 +274,25 @@ textarea{font-family:var(--font)}
 .scroll-btm:hover{background:var(--bg-hover);color:var(--text)}
 
 /* ===== FADE IN ===== */
-@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .msg{animation:fadeIn .25s ease both}
+
+/* ===== BUTTON PRESS FEEDBACK ===== */
+.new-btn:active,.sidebar-item:active,.sidebar-bt-item:active,.sidebar-user:active,
+.greet-btn:active,.model-btn:active,.topbar-btn:active,.comp-btn:active,
+.send-btn:active,.act-btn:active{transform:scale(.94)}
+.send-btn.active:active{transform:scale(.92)}
 
 /* ===== TOUCH DEVICES ===== */
 @media(hover:none){
-  .msg-acts{opacity:1}
+  .msg-acts,.chat-item-actions{opacity:1;pointer-events:auto}
+  .chat-item-actions{display:flex}
+}
+
+/* ===== REDUCED MOTION ===== */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  .msg{animation:none}
 }
 
 /* ===== RESPONSIVE ===== */
@@ -299,6 +313,12 @@ textarea{font-family:var(--font)}
   .av{width:26px;height:26px;font-size:11px}
   .msg-txt{font-size:14px}
   .topbar-side{min-width:60px}
+  .model-menu{
+    position:fixed;top:56px;left:12px;right:12px;min-width:0;width:auto;
+    transform:none;max-height:calc(100dvh - 72px);overflow-y:auto
+  }
+  .model-picker.open .model-menu{transform:none}
+  .composer-hint{font-size:10px}
 }
 
 /* ===== TOAST ===== */
