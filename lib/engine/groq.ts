@@ -8,6 +8,7 @@ export const MODELS: Record<ModelKind, ModelSpec> = {
   thinking: { key: 'GROQ_API_KEY_2', model: 'llama-3.1-8b-instant', maxTokens: 150, name: 'Thinking' },
   research: { key: 'GROQ_API_KEY_3', model: 'llama-3.1-8b-instant', maxTokens: 150, name: 'Research' },
   creative: { key: 'GROQ_API_KEY_4', model: 'llama-3.1-8b-instant', maxTokens: 150, name: 'Creative' },
+  upload: { key: 'GROQ_API_KEY', model: process.env.UPLOAD_MODEL || 'llama-3.3-70b-versatile', maxTokens: 150, name: 'Upload' },
 }
 
 export class EngineError extends Error {

@@ -9,7 +9,7 @@ import { holdConference } from '../model-conference'
 import { callGroq, EngineError } from './groq'
 import { ZANCO_PERSONA } from '../persona'
 import { checkRateLimit } from './rate-limit'
-import type { ChatMessage, EngineErrorCode, EngineResult, ScanResult } from './types'
+import type { ChatMessage, EngineErrorCode, EngineResult, ModelKind, ScanResult } from './types'
 
 const jailbreakScanner = new JailbreakScanner()
 
@@ -72,10 +72,16 @@ function ok(content: string, meta: EngineResult['meta'] = {}): EngineResult {
  * CHAT — pipeline penuh (validasi -> sanitasi -> filter -> scan
  * jailbreak -> rate limit -> panggil model Groq)
  * ============================================================ */
+export interface RunChatOptions {
+  context?: string
+  model?: ModelKind
+}
+
 export async function runChat(
   messages: unknown,
   ip: string | undefined,
   context?: string,
+  opts: RunChatOptions = {},
 ): Promise<EngineResult> {
   const clientIp = ip || 'anonymous'
 
@@ -134,7 +140,7 @@ export async function runChat(
     // 7. Eksekusi model (terisolasi) — konteks lampiran (vision/pillow) masuk system prompt
     const baseSystem = `${ZANCO_PERSONA}\n\n${JAILBREAK_POLICY_PROMPT}`
     const systemPrompt = context ? `${baseSystem}\n\n${context}` : baseSystem
-    const content = await callGroq('chat', systemPrompt, filtered)
+    const content = await callGroq(opts.model || 'chat', systemPrompt, filtered)
     return ok(content, meta)
   } catch (e) {
     if (e instanceof EngineError) {

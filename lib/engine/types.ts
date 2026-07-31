@@ -8,7 +8,7 @@ export interface ChatMessage {
   streaming?: boolean
 }
 
-export type ModelKind = 'chat' | 'thinking' | 'research' | 'creative'
+export type ModelKind = 'chat' | 'thinking' | 'research' | 'creative' | 'upload'
 
 export interface ModelSpec {
   /** Nama env var yang menyimpan API key */

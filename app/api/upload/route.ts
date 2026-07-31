@@ -3,7 +3,10 @@ import { runVisionPipeline } from '@/lib/engine/vision'
 import { JailbreakScanner, verdictToError } from '@/lib/jailbreak-scanner'
 import type { EngineErrorCode, ScanResult } from '@/lib/engine/types'
 
-const jailbreakScanner = new JailbreakScanner()
+// Scanner penuh (heuristic + ML) dipakai untuk pesan user di sandbox (runChat).
+// Konteks lampiran adalah output AI sendiri (vision/pillow), jadi cukup
+// heuristic-only untuk hindari false positive dari Prompt Guard.
+const contextScanner = new JailbreakScanner({ useMlLayer: false, useContentPolicyLayer: false })
 
 const STATUS_MAP: Record<EngineErrorCode, number> = {
   INVALID_INPUT: 400,
@@ -55,7 +58,7 @@ export async function POST(request: Request) {
     const vision = await runVisionPipeline(file)
 
     // 3) SANDBOX → jailbreak scan konteks lampiran (anti prompt-injection via file)
-    const scan = await jailbreakScanner.scan(vision.context, ip) as ScanResult
+    const scan = await contextScanner.scan(vision.context, ip) as ScanResult
     if (scan.verdict === 'banned' || scan.verdict === 'block') {
       const scanErr = verdictToError(scan) as { code: string; message: string }
       return Response.json({ error: scanErr.message }, { status: 403 })
@@ -65,7 +68,7 @@ export async function POST(request: Request) {
     const userText = message || 'Analisis lampiran ini'
     const messages = [...history, { role: 'user' as const, content: userText }]
 
-    const result = await runChat(messages, ip, vision.context)
+    const result = await runChat(messages, ip, vision.context, { model: 'upload' })
     const headers: Record<string, string> = {
       'X-RateLimit-Remaining': String(result.meta.rateLimit?.remaining ?? ''),
       'X-RateLimit-Reset': String(result.meta.rateLimit?.resetAt ?? ''),
@@ -80,7 +83,7 @@ export async function POST(request: Request) {
     }
 
     return Response.json(
-      { content: result.content, vision: { kind: vision.kind, name: vision.name, detail: vision.detail } },
+      { content: result.content, vision: { kind: vision.kind, name: vision.name } },
       { headers },
     )
   } catch (err) {

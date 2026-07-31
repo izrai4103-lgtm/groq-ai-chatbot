@@ -195,7 +195,9 @@ async function callGroqVision(system: string, content: unknown): Promise<string>
         throw new EngineError('AI_MODEL_ERROR', `Vision model error (${res.status})`, { detail })
       }
       const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
-      const contentText = data.choices?.[0]?.message?.content?.trim() || ''
+      let contentText = data.choices?.[0]?.message?.content?.trim() || ''
+      // Buang blok reasoning qwen (<think>...</think>) agar konteks tetap bersih
+      contentText = contentText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
       if (contentText) return contentText
       lastDetail = 'empty response'
       await sleep(1000 * (attempt + 1))
@@ -371,7 +373,7 @@ async function analyzeImage(name: string, buffer: Buffer): Promise<VisionResult>
     lines.push('(Model vision sedang sibuk — hanya analisis teknis Pillow yang tersedia.)', '')
   }
 
-  lines.push('Konteks lampiran ini membantu menjawab pertanyaan/permintaan user yang ada di pesan user. Jawab langsung tanpa menyebut konteks ini.')
+  lines.push('PENTING: User melampirkan file ini. Analisis di atas adalah hasil scan Anda terhadap file tersebut. Anda SUDAH melihat/baca isinya. Jawab langsung pertanyaan user berdasarkan analisis — jangan pernah mengaku tidak bisa melihat/membaca file.')
   return { kind: 'image', name, context: truncate(lines.join('\n'), MAX_REPORT_CHARS) }
 }
 
@@ -403,7 +405,7 @@ async function analyzeDocument(name: string, buffer: Buffer, ext: string): Promi
     lines.push('(Model vision sedang sibuk — menampilkan isi dokumen langsung.)', '')
     lines.push('=== ISI DOKUMEN ===', truncate(raw, 3000), '')
   }
-  lines.push('Konteks lampiran ini membantu menjawab pertanyaan/permintaan user yang ada di pesan user. Jawab langsung tanpa menyebut konteks ini.')
+  lines.push('PENTING: User melampirkan file ini. Analisis di atas adalah hasil scan Anda terhadap file tersebut. Anda SUDAH melihat/baca isinya. Jawab langsung pertanyaan user berdasarkan analisis — jangan pernah mengaku tidak bisa melihat/membaca file.')
   return { kind: 'document', name, context: truncate(lines.join('\n'), MAX_REPORT_CHARS) }
 }
 

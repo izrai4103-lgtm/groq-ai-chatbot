@@ -7,7 +7,11 @@ const nextConfig = {
     serverComponentsExternalPackages: ['pdf-parse'],
     // Pastikan worker pdfjs ikut ter-deploy ke Vercel
     outputFileTracingIncludes: {
-      '/api/upload': ['./node_modules/pdf-parse/dist/**/*'],
+      '/api/upload': [
+        './node_modules/pdf-parse/dist/**/*',
+        './node_modules/@napi-rs/canvas/**/*',
+        './node_modules/@napi-rs/canvas-linux-*/**/*',
+      ],
     },
   },
 }
