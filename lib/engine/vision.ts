@@ -38,6 +38,7 @@ export interface VisionResult {
   kind: 'image' | 'document' | 'audio'
   name: string
   context: string
+  detail?: string
 }
 
 interface PillowInfo {
@@ -389,6 +390,7 @@ async function analyzeDocument(name: string, buffer: Buffer, ext: string): Promi
     return {
       kind: 'document',
       name,
+      detail: extractError,
       context: `[📎 LAMPIRAN: ${name} — tipe: dokumen]\n\nIsi dokumen tidak bisa diekstrak otomatis. ${extractError ? 'Detail teknis: ' + extractError : ''}`,
     }
   }
