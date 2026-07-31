@@ -112,6 +112,50 @@ function fallbackCopy(text) {
   }
 }
 
+/* ===== GAMBAR (JS: kompres + thumbnail sebelum upload) ===== */
+function readImageBitmap(file) {
+  if ('createImageBitmap' in window) {
+    return createImageBitmap(file)
+  }
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img) }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('gambar gagal dimuat')) }
+    img.src = url
+  })
+}
+
+async function compressImageFile(file) {
+  const bmp = await readImageBitmap(file)
+  const MAX = 1400
+  const scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(bmp.width * scale))
+  canvas.height = Math.max(1, Math.round(bmp.height * scale))
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height)
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85))
+  if (!blob) throw new Error('kompresi gambar gagal')
+  return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' })
+}
+
+async function makeThumb(file) {
+  try {
+    const bmp = await readImageBitmap(file)
+    const MAX = 96
+    const scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(bmp.width * scale))
+    canvas.height = Math.max(1, Math.round(bmp.height * scale))
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height)
+    return canvas.toDataURL('image/jpeg', 0.7)
+  } catch (e) {
+    return ''
+  }
+}
+
 /* ===== MESSAGE ===== */
 function ChatMessage({
   msg, isLast, loading,
@@ -140,6 +184,18 @@ function ChatMessage({
           </div>
         </div>
         <div className="msg-c">
+          {isUser && msg.attachment && (
+            <div className="msg-file">
+              {msg.attachment.thumb ? (
+                <img className="msg-file-thumb" src={msg.attachment.thumb} alt={msg.attachment.name} />
+              ) : (
+                <div className="msg-file-ic">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6" /><path d="M16 13H8M16 17H8M10 9H8" /></svg>
+                </div>
+              )}
+              <span className="msg-file-nm" title={msg.attachment.name}>{msg.attachment.name}</span>
+            </div>
+          )}
           {msg.streaming && !isUser ? (
             <StreamingText text={msg.content} onTick={onStreamTick} onDone={() => onStreamDone?.(msg.id)} />
           ) : (
@@ -327,8 +383,8 @@ export default function Home() {
   }, [])
 
   /* ===== SEND ===== */
-  const send = useCallback(async (messageList, text) => {
-    if (!text || loading) return
+  const send = useCallback(async (messageList, text, attach = null) => {
+    if ((!text && !attach) || loading) return
     setLoading(true)
     setError('')
     logUX('send', { model })
@@ -346,8 +402,16 @@ export default function Home() {
 
     let endpoint = '/api/chat'
     let body = { messages: messageList.map(m => ({ role: m.role, content: m.content })) }
+    let form = null
 
-    if (isConference) {
+    if (attach) {
+      // Vision → pillow → sandbox → models AI
+      endpoint = '/api/upload'
+      form = new FormData()
+      form.append('message', text)
+      form.append('file', attach.file)
+      form.append('history', JSON.stringify(messageList.map(m => ({ role: m.role, content: m.content }))))
+    } else if (isConference) {
       endpoint = '/api/conference'
       body = { topic: text, rounds: 2 }
     } else if (model === 'thinking' || useResearch) {
@@ -358,8 +422,8 @@ export default function Home() {
     try {
       const res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        headers: form ? undefined : { 'Content-Type': 'application/json' },
+        body: form ? form : JSON.stringify(body),
         signal: controller.signal,
       })
       if (!res.ok) {
@@ -399,19 +463,30 @@ export default function Home() {
   const handleSubmit = useCallback((e) => {
     e?.preventDefault()
     const text = input.trim()
-    if (!text || loading) return
+    if ((!text && !file) || loading) return
 
     // Buat chat baru kalau belum ada
     if (!activeId) setActiveId(nextId())
 
-    const userMsg = { id: nextId(), role: 'user', content: text, entry: true, status: 'sent' }
+    const attach = file ? {
+      name: file.name,
+      type: file.type,
+      thumb: file.thumb,
+      kind: file.type.startsWith('image/') ? 'image' : file.type.startsWith('audio/') ? 'audio' : 'doc',
+      file: file.file,
+    } : null
+
+    const userMsg = {
+      id: nextId(), role: 'user', content: text, entry: true, status: 'sent',
+      attachment: attach ? { name: attach.name, type: attach.type, thumb: attach.thumb, kind: attach.kind } : null,
+    }
     const all = [...messages, userMsg]
     setMessages(all)
     setInput('')
     setFile(null)
-    if (!messages.some(m => m.role === 'user')) setChatTitle(truncate(text, 40))
-    send(all, text)
-  }, [input, loading, messages, activeId, send])
+    if (!messages.some(m => m.role === 'user')) setChatTitle(truncate(text || attach?.name, 40))
+    send(all, text, attach)
+  }, [input, loading, messages, activeId, send, file])
 
   const stopGeneration = useCallback(() => {
     abortRef.current?.abort()
@@ -548,11 +623,24 @@ export default function Home() {
   }, [loading])
 
   /* ===== FILE / SHARE ===== */
-  const handleFile = useCallback((e) => {
+  const handleFile = useCallback(async (e) => {
     const f = e.target.files?.[0]
-    if (f) setFile({ name: f.name, size: f.size })
+    if (!f) return
+    if (f.size > 4 * 1024 * 1024) {
+      showToast('File maksimal 4MB')
+      e.target.value = ''
+      return
+    }
+    try {
+      const isImage = f.type.startsWith('image/')
+      const uploadFile = isImage ? await compressImageFile(f) : f
+      const thumb = isImage ? await makeThumb(f) : ''
+      setFile({ name: f.name, size: f.size, type: f.type, file: uploadFile, thumb })
+    } catch (err) {
+      showToast('Gagal memproses file')
+    }
     e.target.value = ''
-  }, [])
+  }, [showToast])
 
   const share = useCallback(() => {
     navigator.clipboard.writeText(window.location.href).then(() => showToast('Link disalin!'))
@@ -779,6 +867,7 @@ export default function Home() {
           <div className="composer-wrap">
             {file && (
               <div className="file-chip">
+                {file.thumb && <img className="file-chip-thumb" src={file.thumb} alt="" />}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" /></svg>
                 {file.name}
                 <button onClick={() => setFile(null)} title="Hapus lampiran">
@@ -820,8 +909,8 @@ export default function Home() {
               ) : (
                 <button
                   type="submit"
-                  disabled={!input.trim()}
-                  className={`send-btn ${input.trim() ? 'active' : ''}`}
+                  disabled={!input.trim() && !file}
+                  className={`send-btn ${input.trim() || file ? 'active' : ''}`}
                   title="Kirim pesan"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>

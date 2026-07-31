@@ -1,0 +1,82 @@
+import { runChat } from '@/lib/engine/engine'
+import { runVisionPipeline } from '@/lib/engine/vision'
+import type { EngineErrorCode } from '@/lib/engine/types'
+
+const STATUS_MAP: Record<EngineErrorCode, number> = {
+  INVALID_INPUT: 400,
+  EMPTY_AFTER_SANITIZE: 400,
+  CONTENT_BLOCKED: 403,
+  JAILBREAK_BLOCKED: 403,
+  USER_BANNED: 429,
+  RATE_LIMITED: 429,
+  AI_MODEL_UNAVAILABLE: 503,
+  AI_MODEL_ERROR: 502,
+  AI_TIMEOUT: 504,
+  AI_EMPTY_RESPONSE: 502,
+  AI_UNKNOWN: 502,
+  SANDBOX_ERROR: 500,
+}
+
+/* ============================================================
+ * 📎 UPLOAD — alur vision → pillow → sandbox → models AI
+ * Terima multipart (file + message + history), scan/identifikasi
+ * file, lalu kirim konteks ke sandbox (engine) untuk dijawab
+ * semua models AI.
+ * ============================================================ */
+export async function POST(request: Request) {
+  try {
+    const ip =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      request.headers.get('x-real-ip') ??
+      'anonymous'
+
+    const form = await request.formData().catch(() => null)
+    if (!form) return Response.json({ error: 'Form tidak valid' }, { status: 400 })
+
+    const file = form.get('file')
+    if (!(file instanceof File)) {
+      return Response.json({ error: 'File diperlukan' }, { status: 400 })
+    }
+
+    const message = String(form.get('message') || '').trim()
+    let history: unknown[] = []
+    try {
+      const parsed = JSON.parse(String(form.get('history') || '[]'))
+      if (Array.isArray(parsed)) history = parsed
+    } catch {
+      history = []
+    }
+
+    // 1) VISION → scan & identifikasi file
+    // 2) PILLOW → analisis gambar (fallback sharp di Vercel)
+    const vision = await runVisionPipeline(file)
+
+    // 3) SANDBOX → validasi, jailbreak scan, rate limit, models AI
+    const userText = message || 'Analisis lampiran ini'
+    const content = `${userText}\n\n${vision.context}`.slice(0, 7900)
+    const messages = [...history, { role: 'user' as const, content }]
+
+    const result = await runChat(messages, ip)
+    const headers: Record<string, string> = {
+      'X-RateLimit-Remaining': String(result.meta.rateLimit?.remaining ?? ''),
+      'X-RateLimit-Reset': String(result.meta.rateLimit?.resetAt ?? ''),
+    }
+
+    if (!result.success) {
+      const status = result.error ? STATUS_MAP[result.error.code] || 500 : 500
+      return Response.json(
+        { error: result.error?.message || 'Unknown error' },
+        { status, headers },
+      )
+    }
+
+    return Response.json(
+      { content: result.content, vision: { kind: vision.kind, name: vision.name } },
+      { headers },
+    )
+  } catch (err) {
+    console.error('API Upload Error:', err)
+    const status = err instanceof Error && /File|tipe|Tipe|dokumen|audio|gambar|4MB/i.test(err.message) ? 400 : 500
+    return Response.json({ error: err instanceof Error ? err.message : 'Internal server error' }, { status })
+  }
+}
