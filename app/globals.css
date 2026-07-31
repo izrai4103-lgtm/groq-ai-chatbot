@@ -414,8 +414,37 @@ textarea{font-family:var(--font)}
 }
 @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 
-/* ===== CODE LANG ===== */
-.code-lang{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px}
+/* ===== CODEBOX (kotak kode kecil + tombol salin) ===== */
+.codebox{
+  background:var(--bg-side);border:1px solid var(--border);border-radius:10px;
+  margin:0 0 12px;overflow:hidden;animation:codeIn .3s cubic-bezier(.22,.61,.36,1) both
+}
+@keyframes codeIn{from{opacity:0;transform:translateY(6px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+.codebox-hd{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:6px 8px 6px 12px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.03)
+}
+.codebox-lang{
+  font-size:11px;color:var(--text-sec);text-transform:uppercase;letter-spacing:.05em;
+  font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.codebox-copy{
+  display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-sec);
+  background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;
+  transition:.15s;flex-shrink:0
+}
+.codebox-copy svg{width:12px;height:12px}
+.codebox-copy:hover{background:var(--bg-hover);color:var(--text)}
+.codebox-copy:active{transform:scale(.94)}
+.codebox-copy.done{color:var(--green);border-color:var(--green)}
+.codebox pre{
+  background:transparent;border:none;border-radius:0;padding:10px 14px;
+  overflow-x:auto;margin:0
+}
+.codebox pre code{
+  background:transparent;border:none;padding:0;font-size:12.5px;line-height:1.6;
+  color:#e6e6e6;white-space:pre
+}
 
 /* ===== ARSIP (CSS: daftar chat aktif vs arsip) ===== */
 .chat-item{position:relative;display:flex;align-items:center;border-radius:6px;transition:background .15s}

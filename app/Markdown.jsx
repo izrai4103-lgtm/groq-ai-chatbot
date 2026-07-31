@@ -1,12 +1,73 @@
 'use client'
 
-import { Fragment } from 'react'
+import { Fragment, useState, useRef } from 'react'
 
 // Parse text menjadi React nodes (aman, tanpa innerHTML)
 export default function Markdown({ text }) {
   if (!text) return null
   const nodes = parseBlocks(text)
   return <>{nodes}</>
+}
+
+/* ===== KOTAK KODE KECIL + TOMBOL SALIN ===== */
+function fallbackCopy(text) {
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch (e) {
+    return false
+  }
+}
+
+function CodeBlock({ lang, code }) {
+  const [copied, setCopied] = useState(false)
+  const timer = useRef(null)
+
+  const onCopy = () => {
+    const done = () => {
+      setCopied(true)
+      clearTimeout(timer.current)
+      timer.current = setTimeout(() => setCopied(false), 2000)
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(code).then(done).catch(() => { if (fallbackCopy(code)) done() })
+    } else if (fallbackCopy(code)) {
+      done()
+    }
+  }
+
+  return (
+    <div className="codebox">
+      <div className="codebox-hd">
+        <span className="codebox-lang">{lang || 'Kode'}</span>
+        <button
+          type="button"
+          className={`codebox-copy ${copied ? 'done' : ''}`}
+          onClick={onCopy}
+          title="Salin kode"
+          aria-label="Salin kode"
+          aria-pressed={copied}
+        >
+          {copied ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+          )}
+          <span>{copied ? 'Tersalin' : 'Salin'}</span>
+        </button>
+      </div>
+      <pre>
+        <code>{code}</code>
+      </pre>
+    </div>
+  )
 }
 
 function parseBlocks(text) {
@@ -20,10 +81,7 @@ function parseBlocks(text) {
       const lang = parts[i]
       const code = parts[i + 1]
       out.push(
-        <pre key={i}>
-          {lang && <div className="code-lang">{lang}</div>}
-          <code>{code}</code>
-        </pre>
+        <CodeBlock key={i} lang={lang} code={code} />
       )
       i++ // skip code content
     }
