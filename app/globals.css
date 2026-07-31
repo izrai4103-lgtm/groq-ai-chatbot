@@ -312,3 +312,62 @@ textarea{font-family:var(--font)}
 
 /* ===== CODE LANG ===== */
 .code-lang{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px}
+
+/* ===== ARSIP (CSS: daftar chat aktif vs arsip) ===== */
+.chat-item{position:relative;display:flex;align-items:center;border-radius:6px;transition:background .15s}
+.chat-item:hover{background:var(--bg-hover)}
+.chat-item-main{flex:1;min-width:0}
+.chat-item-actions{display:none;align-items:center;gap:2px;padding-right:4px;flex-shrink:0}
+.chat-item:hover .chat-item-actions,.chat-item:focus-within .chat-item-actions{display:flex}
+.chat-item-actions .act-btn{width:26px;height:26px;border-radius:6px;color:var(--text-muted)}
+.chat-item-actions .act-btn:hover{background:var(--bg-active);color:var(--text)}
+.empty-state{
+  margin:4px 6px;padding:14px 10px;font-size:12px;color:var(--text-muted);text-align:center;
+  border:1px dashed var(--border);border-radius:8px;line-height:1.5
+}
+.arch-badge{
+  min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--bg-active);
+  color:var(--text-sec);font-size:11px;font-weight:600;display:inline-flex;align-items:center;
+  justify-content:center;margin-left:auto;flex-shrink:0
+}
+.sidebar-bt-item .arch-badge{margin-left:auto}
+
+/* ===== GATE (izin device wajib) ===== */
+.gate{
+  position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(1200px 600px at 50% 0%,#2b2b2b 0%,#171717 60%,#101010 100%);
+  padding:24px;overflow-y:auto
+}
+.gate-card{
+  width:100%;max-width:430px;background:var(--bg-side);border:1px solid var(--border);
+  border-radius:16px;padding:32px 28px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.55);
+  animation:gateIn .35s ease both
+}
+@keyframes gateIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+.gate-ic{
+  width:64px;height:64px;margin:0 auto 16px;border-radius:18px;
+  background:linear-gradient(135deg,var(--green),#0ea5e9);display:flex;align-items:center;
+  justify-content:center;color:#fff;box-shadow:0 8px 24px rgba(25,195,125,.35)
+}
+.gate-ic svg{width:30px;height:30px}
+.gate h1{font-size:20px;font-weight:600;margin-bottom:8px;letter-spacing:-.01em}
+.gate p{font-size:13px;color:var(--text-sec);margin-bottom:18px;line-height:1.6}
+.gate p strong{color:var(--text)}
+.gate-list{display:grid;grid-template-columns:1fr;gap:8px;text-align:left;margin-bottom:20px}
+.gate-list span{
+  display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-sec);
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;line-height:1.4
+}
+.gate-btn{
+  width:100%;padding:12px;border:none;border-radius:10px;background:var(--green);color:#fff;
+  font-size:14px;font-weight:600;transition:.15s;display:flex;align-items:center;
+  justify-content:center;gap:8px
+}
+.gate-btn:hover:not(:disabled){background:var(--green-hover)}
+.gate-btn:disabled{opacity:.6;cursor:wait}
+.gate-btn svg{width:16px;height:16px}
+.gate-note{font-size:11px;color:var(--text-muted);margin:12px 0 0}
+@media(max-width:480px){
+  .gate-card{padding:24px 18px}
+  .gate h1{font-size:18px}
+}
