@@ -24,6 +24,8 @@ export async function POST(request) {
         'INVALID_INPUT': 400,
         'EMPTY_AFTER_SANITIZE': 400,
         'CONTENT_BLOCKED': 403,
+        'JAILBREAK_BLOCKED': 403,
+        'USER_BANNED': 429,
         'RATE_LIMITED': 429,
         'AI_MODEL_UNAVAILABLE': 503,
         'AI_MODEL_ERROR': 502,

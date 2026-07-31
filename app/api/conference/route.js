@@ -13,7 +13,17 @@ export async function POST(request) {
     }
 
     const maxRounds = Math.min(rounds || 2, 3) // Max 3 rounds
-    const result = await holdConference(topic, maxRounds)
+
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || 'anonymous'
+
+    const result = await holdConference(topic, maxRounds, ip)
+
+    if (result.blockCode) {
+      const status = result.blockCode === 'USER_BANNED' ? 429 : 403
+      return Response.json({ error: result.error }, { status })
+    }
 
     return Response.json(result)
   } catch (err) {
