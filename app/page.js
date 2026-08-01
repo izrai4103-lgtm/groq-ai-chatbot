@@ -2,6 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback, Fragment } from 'react'
 import Markdown from './Markdown'
+import ProfilePanel from '../components/ProfilePanel'
+import { loadProfile, saveProfile, DEFAULT_PROFILE } from '../lib/profile'
+import { loadSession, saveSession, clearSession } from '../lib/auth-sandbox'
 
 /* ===== CONSTANTS ===== */
 const WELCOME = 'Halo! Aku Zanco-Ai. Ada yang bisa aku bantu?'
@@ -58,7 +61,6 @@ function loadAnimPref() {
   } catch (e) { /* ignore */ }
   return 'on'
 }
-
 
 /* ===== ICONS ===== */
 const ICONS = {
@@ -262,7 +264,7 @@ function TypingIndicator({ model = 'chat' }) {
         <div className="msg-av"><div className="av assistant">AI</div></div>
         <div className="msg-c">
           <div className={`typing ${model}`}>
-            <span></span><span></span><span></span>
+            <span className="typ-dot"><span></span><span></span><span></span></span>
             <span className="typ-label">{label}</span>
           </div>
         </div>
@@ -304,6 +306,9 @@ export default function Home() {
   const [historyQuery, setHistoryQuery] = useState('')
   const [animPref, setAnimPref] = useState(loadAnimPref)
   const [showSettings, setShowSettings] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
+  const [profile, setProfile] = useState(loadProfile)
+  const [session, setSession] = useState(loadSession)
   const [tipIdx, setTipIdx] = useState(0)
 
 
@@ -314,6 +319,7 @@ export default function Home() {
   const abortRef = useRef(null)
   const toastTimer = useRef(null)
   const copiedTimer = useRef(null)
+  const attachFilesRef = useRef(new Map())
 
   /* ===== PERSIST (JS: simpan chats + status arsip) ===== */
   useEffect(() => {
@@ -323,6 +329,24 @@ export default function Home() {
   useEffect(() => {
     try { localStorage.setItem(ANIM_KEY, animPref) } catch (e) { /* ignore */ }
   }, [animPref])
+
+  /* Sidebar: otomatis tertutup di layar kecil (mobile) */
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const apply = () => setSidebarOpen(!mq.matches)
+    apply()
+    mq.addEventListener?.('change', apply)
+    return () => mq.removeEventListener?.('change', apply)
+  }, [])
+
+  useEffect(() => {
+    saveProfile(profile)
+  }, [profile])
+
+  useEffect(() => {
+    if (session) saveSession(session)
+    else clearSession()
+  }, [session])
 
   // Sinkronkan pesan aktif ke daftar chats (hanya jika sudah ada pesan user)
   useEffect(() => {
@@ -433,7 +457,7 @@ export default function Home() {
       const data = await res.json()
 
       let content = ''
-      if (endpoint === '/api/chat') {
+      if (endpoint === '/api/chat' || endpoint === '/api/upload') {
         content = data.content
       } else if (endpoint === '/api/think') {
         content = model === 'thinking'
@@ -480,6 +504,7 @@ export default function Home() {
       id: nextId(), role: 'user', content: text, entry: true, status: 'sent',
       attachment: attach ? { name: attach.name, type: attach.type, thumb: attach.thumb, kind: attach.kind } : null,
     }
+    if (attach) attachFilesRef.current.set(userMsg.id, attach.file)
     const all = [...messages, userMsg]
     setMessages(all)
     setInput('')
@@ -499,7 +524,8 @@ export default function Home() {
     const lastUser = [...messages].reverse().find(m => m.role === 'user')
     if (!lastUser) return
     setError('')
-    send(messages, lastUser.content)
+    const retryFile = attachFilesRef.current.get(lastUser.id)
+    send(messages, lastUser.content, retryFile ? { ...lastUser.attachment, file: retryFile } : null)
   }, [loading, messages, send])
 
   /* ===== EDIT / REGENERATE ===== */
@@ -523,7 +549,8 @@ export default function Home() {
     if (!userMsg) return
     setMessages(before)
     showToast('Membuat ulang jawaban...')
-    send(before, userMsg.content)
+    const regenFile = attachFilesRef.current.get(userMsg.id)
+    send(before, userMsg.content, regenFile ? { ...userMsg.attachment, file: regenFile } : null)
   }, [loading, messages, send, showToast])
 
   const rate = useCallback((msg, val) => {
@@ -766,11 +793,15 @@ export default function Home() {
             <svg viewBox="0 0 24 24" fill="none" strokeLinecap="round"><circle cx="12" cy="12" r="3" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m9.9 9.9l2.1 2.1m0-14.1l-2.1 2.1M7 17.1l-2.1 2.1" /></svg>
             Setelan
           </button>
-          <div className="sidebar-user">
-            <div className="sidebar-user-av">B</div>
-            <span className="sidebar-user-nm">DZarif</span>
+          <button type="button" className="sidebar-user" onClick={() => setShowProfile(true)} title="Profil">
+            <div className="sidebar-user-av">
+              {profile.avatar
+                ? <img src={profile.avatar} alt="" />
+                : <span>{(profile.name || DEFAULT_PROFILE.name).charAt(0).toUpperCase()}</span>}
+            </div>
+            <span className="sidebar-user-nm">{profile.name || DEFAULT_PROFILE.name}</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
-          </div>
+          </button>
         </div>
       </aside>
 
@@ -818,11 +849,18 @@ export default function Home() {
         <div className="chat" ref={chatRef} onScroll={handleScroll}>
           {greeting ? (
             <div className="greet">
-              <div className="greet-badge">⚡ Powered by Groq AI</div>
+              <div className="greet-logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z" /><path d="M12 6v6l4 2" /></svg>
+              </div>
+              <div className="greet-badge"><span className="dot" /> Powered by Groq AI</div>
               <h1>Ada yang bisa saya bantu?</h1>
+              <div className="greet-sub">Saya Zanco-Ai — siap membantu menjawab, menganalisa, meneliti, hingga membuat kode untukmu.</div>
               <div className="greet-grid">
                 {SUGGESTIONS.map((s, i) => (
-                  <button key={i} className="greet-btn" style={{ animationDelay: `${i * 70}ms` }} onClick={() => pickSuggestion(s)}>{s}</button>
+                  <button key={i} className="greet-btn" style={{ animationDelay: `${i * 70}ms` }} onClick={() => pickSuggestion(s)}>
+                    {s}
+                    <svg className="g-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                  </button>
                 ))}
               </div>
               <div className="greet-tip" key={tipIdx}>💡 {TIPS[tipIdx]}</div>
@@ -953,6 +991,18 @@ export default function Home() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* PROFIL */}
+        {showProfile && (
+          <ProfilePanel
+            profile={profile}
+            session={session}
+            onProfileChange={setProfile}
+            onSessionChange={setSession}
+            onClose={() => setShowProfile(false)}
+            onToast={showToast}
+          />
         )}
 
         {/* TOAST */}

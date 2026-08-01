@@ -7,7 +7,7 @@ import { JailbreakScanner, JAILBREAK_POLICY_PROMPT, verdictToError } from '../ja
 import { thinkAndResearch } from '../code-executor'
 import { holdConference } from '../model-conference'
 import { callGroq, EngineError } from './groq'
-import { ZANCO_PERSONA } from '../persona'
+import { BASE_SYSTEM_PROMPT } from '../schema-prompt'
 import { checkRateLimit } from './rate-limit'
 import type { ChatMessage, EngineErrorCode, EngineResult, ModelKind, ScanResult } from './types'
 
@@ -137,8 +137,9 @@ export async function runChat(
       )
     }
 
-    // 7. Eksekusi model (terisolasi) — konteks lampiran (vision/pillow) masuk system prompt
-    const baseSystem = `${ZANCO_PERSONA}\n\n${JAILBREAK_POLICY_PROMPT}`
+    // 7. Eksekusi model (terisolasi) — system prompt dari schema.json + persona
+    //    Alur: sandbox → semua models AI → jailbreak scanner → prompt sistem
+    const baseSystem = `${BASE_SYSTEM_PROMPT}\n\n${JAILBREAK_POLICY_PROMPT}`
     const systemPrompt = context ? `${baseSystem}\n\n${context}` : baseSystem
     const content = await callGroq(opts.model || 'chat', systemPrompt, filtered)
     return ok(content, meta)

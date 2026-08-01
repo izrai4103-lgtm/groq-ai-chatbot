@@ -51,15 +51,15 @@ func TestBuildGroqRequest(t *testing.T) {
 	if len(req.Messages) != 2 || req.Messages[0].Role != "system" {
 		t.Fatalf("messages salah: %+v", req.Messages)
 	}
-	if req.MaxTokens != 150 {
-		t.Fatalf("max_tokens harus 150, dapat %d", req.MaxTokens)
+	if req.MaxTokens != 160 {
+		t.Fatalf("max_tokens harus 160, dapat %d", req.MaxTokens)
 	}
 
 	raw, err := ToJSON(req)
 	if err != nil {
 		t.Fatalf("gagal serialize: %v", err)
 	}
-	if !strings.Contains(string(raw), `"max_tokens":150`) {
+	if !strings.Contains(string(raw), `"max_tokens":160`) {
 		t.Fatalf("payload tidak sesuai: %s", raw)
 	}
 }

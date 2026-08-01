@@ -27,7 +27,7 @@ const (
 	KindCreative ModelKind = "creative"
 )
 
-// ModelSpec adalah konfigurasi satu model Groq (max token default 150).
+// ModelSpec adalah konfigurasi satu model Groq (max token default 160).
 type ModelSpec struct {
 	EnvKey    string
 	Model     string
@@ -36,10 +36,10 @@ type ModelSpec struct {
 }
 
 var Models = map[ModelKind]ModelSpec{
-	KindChat:     {EnvKey: "GROQ_API_KEY", Model: "llama-3.1-8b-instant", MaxTokens: 150, Name: "Chat"},
-	KindThinking: {EnvKey: "GROQ_API_KEY_2", Model: "llama-3.1-8b-instant", MaxTokens: 150, Name: "Thinking"},
-	KindResearch: {EnvKey: "GROQ_API_KEY_3", Model: "llama-3.1-8b-instant", MaxTokens: 150, Name: "Research"},
-	KindCreative: {EnvKey: "GROQ_API_KEY_4", Model: "llama-3.1-8b-instant", MaxTokens: 150, Name: "Creative"},
+	KindChat:     {EnvKey: "GROQ_API_KEY", Model: "llama-3.1-8b-instant", MaxTokens: 160, Name: "Chat"},
+	KindThinking: {EnvKey: "GROQ_API_KEY_2", Model: "llama-3.1-8b-instant", MaxTokens: 160, Name: "Thinking"},
+	KindResearch: {EnvKey: "GROQ_API_KEY_3", Model: "llama-3.1-8b-instant", MaxTokens: 160, Name: "Research"},
+	KindCreative: {EnvKey: "GROQ_API_KEY_4", Model: "llama-3.1-8b-instant", MaxTokens: 160, Name: "Creative"},
 }
 
 // ChatMessage adalah satu pesan dalam percakapan.

@@ -26,7 +26,7 @@ export async function POST(request) {
           { role: 'user', content: `Jalankan kode ini:\n\`\`\`${lang}\n${code}\n\`\`\`` }
         ],
         temperature: 0.3,
-        max_tokens: 150,
+        max_tokens: 160,
       }),
     })
 

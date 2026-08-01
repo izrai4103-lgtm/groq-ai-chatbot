@@ -6,7 +6,7 @@ Mesin utama chatbot dalam bahasa **Go** — padanan dari `lib/engine/engine.ts` 
 
 | File | Fungsi |
 | --- | --- |
-| `engine/engine.go` | Registri model Groq (max token 150), pembangun payload request, normalisasi teks anti-obfuscation, scan heuristic jailbreak lintas bahasa, dan rate limiter 150 req/menit |
+| `engine/engine.go` | Registri model Groq (max token 160), pembangun payload request, normalisasi teks anti-obfuscation, scan heuristic jailbreak lintas bahasa, dan rate limiter 150 req/menit |
 | `engine/engine_test.go` | Unit test untuk semua fungsi di atas |
 
 ## Cara pakai
