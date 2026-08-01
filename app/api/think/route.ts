@@ -1,5 +1,7 @@
 import { runThinking } from '@/lib/engine/engine'
 
+export const maxDuration = 60
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => null)) as { question?: unknown; web?: unknown } | null
