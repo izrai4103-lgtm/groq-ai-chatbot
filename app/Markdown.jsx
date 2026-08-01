@@ -10,6 +10,36 @@ export default function Markdown({ text }) {
   return <>{nodes}</>
 }
 
+/* ===== KOTAK KECIL SUMBER/LINK (dari web research) ===== */
+function hostnameOf(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch (e) {
+    return String(url)
+  }
+}
+
+function SourceChip({ href, label }) {
+  const host = hostnameOf(href)
+  const lbl = String(label || '').trim()
+  const text = lbl && lbl !== href ? lbl : host
+  return (
+    <a className="src-chip" href={href} target="_blank" rel="noopener noreferrer" title={host}>
+      <svg className="src-chip-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M2 12h20" />
+        <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+      </svg>
+      <span className="src-chip-txt">{text}</span>
+      <svg className="src-chip-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+        <path d="M15 3h6v6" />
+        <path d="M10 14L21 3" />
+      </svg>
+    </a>
+  )
+}
+
 /* ===== KOTAK KODE KECIL + TOMBOL SALIN ===== */
 function fallbackCopy(text) {
   try {
@@ -344,7 +374,8 @@ function parseInline(text) {
     { re: /\*([^*]+)\*/g, render: (m) => <em key={i}>{m[1]}</em> },
     { re: /_([^_]+)_/g, render: (m) => <em key={i}>{m[1]}</em> },
     { re: /`([^`]+)`/g, render: (m) => <code key={i}>{m[1]}</code> },
-    { re: /\[([^\]]+)\]\(([^)\s]+)\)/g, render: (m) => <a key={i} href={m[2]} target="_blank" rel="noopener noreferrer">{m[1]}</a> },
+    { re: /\[([^\]]+)\]\(([^)\s]+)\)/g, render: (m) => <SourceChip key={i} href={m[2]} label={m[1]} /> },
+    { re: /(?:https?:\/\/|www\.)[^\s<>()[\]]+/g, render: (m) => <SourceChip key={i} href={m[0]} label={m[0]} /> },
   ]
 
   // Cari token pertama yang match

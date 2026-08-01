@@ -426,7 +426,7 @@ export default function Home() {
       body = { topic: text, rounds: 2 }
     } else if (model === 'thinking' || useResearch) {
       endpoint = '/api/think'
-      body = { question: text }
+      body = { question: text, web: useResearch }
     }
 
     try {

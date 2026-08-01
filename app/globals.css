@@ -506,6 +506,25 @@ textarea{font-family:var(--font)}
   background:var(--bg-side);border:1px solid var(--border);border-radius:10px;
   margin:0 0 12px;overflow:hidden;animation:codeIn .3s cubic-bezier(.22,.61,.36,1) both
 }
+/* ===== KOTAK KECIL SUMBER/LINK (web research) ===== */
+.src-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--bg-side);border:1px solid var(--border);border-radius:8px;
+  padding:3px 9px 3px 7px;margin:2px 4px 2px 0;
+  font-size:12px;color:var(--text-sec);text-decoration:none;
+  vertical-align:middle;transition:.15s;animation:chipIn .25s cubic-bezier(.22,.61,.36,1) both;
+  max-width:100%;overflow:hidden
+}
+@keyframes chipIn{from{opacity:0;transform:translateY(4px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.src-chip:hover{background:var(--bg-hover);color:var(--text);border-color:var(--green)}
+.src-chip:active{transform:scale(.95)}
+.src-chip-ic{width:13px;height:13px;color:var(--green);flex-shrink:0}
+.src-chip-txt{
+  font-weight:600;letter-spacing:.01em;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;font-family:inherit
+}
+.src-chip-open{width:11px;height:11px;flex-shrink:0;opacity:.65}
+
 @keyframes codeIn{from{opacity:0;transform:translateY(6px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
 .codebox-hd{
   display:flex;align-items:center;justify-content:space-between;gap:10px;

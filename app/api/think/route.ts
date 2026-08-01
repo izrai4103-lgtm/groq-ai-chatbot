@@ -2,14 +2,14 @@ import { runThinking } from '@/lib/engine/engine'
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json().catch(() => null)) as { question?: unknown } | null
+    const body = (await request.json().catch(() => null)) as { question?: unknown; web?: unknown } | null
 
     const ip =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
       request.headers.get('x-real-ip') ??
       'anonymous'
 
-    const result = await runThinking(body?.question, ip)
+    const result = await runThinking(body?.question, ip, Boolean(body?.web))
 
     if (result.blockCode) {
       const status = result.blockCode === 'USER_BANNED' ? 429 : 403

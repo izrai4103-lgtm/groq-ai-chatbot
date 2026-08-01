@@ -164,7 +164,7 @@ export interface ThinkResult {
   [key: string]: unknown
 }
 
-export async function runThinking(question: unknown, ip: string | undefined): Promise<ThinkResult> {
+export async function runThinking(question: unknown, ip: string | undefined, useWeb = false): Promise<ThinkResult> {
   const clientIp = ip || 'anonymous'
   if (typeof question !== 'string' || question.trim() === '') {
     return { blockCode: 'INVALID_INPUT', error: 'Question diperlukan' }
@@ -179,7 +179,7 @@ export async function runThinking(question: unknown, ip: string | undefined): Pr
     return { blockCode: scanErr.code, error: scanErr.message }
   }
 
-  return (await thinkAndResearch(question, clientIp)) as unknown as ThinkResult
+  return (await thinkAndResearch(question, clientIp, useWeb)) as unknown as ThinkResult
 }
 
 /* ============================================================
