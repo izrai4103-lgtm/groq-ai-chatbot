@@ -149,48 +149,6 @@ textarea{font-family:var(--font)}
 .chat:hover::-webkit-scrollbar-thumb{background:var(--border)}
 .chat-inner{max-width:var(--w);margin:0 auto;padding:0 0 32px}
 
-/* ===== GREETING ===== */
-.greet{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  min-height:100%;text-align:center;padding:96px 24px 72px
-}
-.greet-logo{
-  width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(135deg,#19c37d,#0ea5e9 60%,#a78bfa);
-  box-shadow:0 8px 28px rgba(25,195,125,.35),inset 0 1px 0 rgba(255,255,255,.25);
-  margin-bottom:20px;animation:logoIn .5s cubic-bezier(.34,1.56,.64,1) both
-}
-.greet-logo svg{width:28px;height:28px;color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
-@keyframes logoIn{0%{opacity:0;transform:scale(.5) rotate(-12deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
-.greet h1{font-size:32px;font-weight:700;letter-spacing:-.02em;line-height:1.3;margin-bottom:8px;animation:msgIn .4s ease both}
-.greet-sub{
-  font-size:14px;color:var(--text-sec);max-width:480px;margin-bottom:28px;line-height:1.6;
-  animation:msgIn .45s ease both
-}
-.greet-badge{
-  display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-sec);
-  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:5px 12px;border-radius:999px;
-  margin-bottom:18px;animation:msgIn .4s ease both
-}
-.greet-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)}
-.greet-tip{
-  margin-top:26px;font-size:12.5px;color:var(--text-muted);max-width:540px;min-height:20px;
-  animation:tipIn .45s cubic-bezier(.22,.61,.36,1) both
-}
-@keyframes tipIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.greet-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:540px}
-.greet-btn{
-  position:relative;padding:13px 38px 13px 16px;border:1px solid var(--border);border-radius:12px;background:transparent;
-  color:var(--text-sec);font-size:13px;text-align:left;transition:.18s;line-height:1.45;overflow:hidden
-}
-.greet-btn:hover{background:var(--bg-hover);border-color:var(--text-muted);color:var(--text);transform:translateY(-1px)}
-.greet-btn:active{transform:scale(.98) translateY(0)}
-.greet-btn .g-arrow{
-  position:absolute;right:12px;top:50%;transform:translateY(-50%) translateX(-4px);width:14px;height:14px;
-  color:var(--text-muted);opacity:0;transition:.18s;pointer-events:none
-}
-.greet-btn:hover .g-arrow{opacity:1;transform:translateY(-50%) translateX(0)}
-
 /* ===== MESSAGES ===== */
 .msg{padding:16px 20px}
 .msg.user{background:var(--bg-msg-user)}
@@ -373,7 +331,7 @@ textarea{font-family:var(--font)}
 
 /* ===== BUTTON PRESS FEEDBACK ===== */
 .new-btn:active,.sidebar-item:active,.sidebar-bt-item:active,.sidebar-user:active,
-.greet-btn:active,.model-btn:active,.topbar-btn:active,.comp-btn:active,
+.model-btn:active,.topbar-btn:active,.comp-btn:active,
 .send-btn:active,.act-btn:active{transform:scale(.94)}
 .send-btn.active:active{transform:scale(.92)}
 
@@ -396,12 +354,6 @@ textarea{font-family:var(--font)}
   .msg{padding:14px 16px}
   .msg-row{gap:12px}
   .composer-area{padding:0 12px 12px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
-  .greet-grid{grid-template-columns:1fr;max-width:100%}
-  .greet h1{font-size:24px}
-  .greet{padding:64px 16px 56px}
-  .greet-logo{width:48px;height:48px;border-radius:14px;margin-bottom:16px}
-  .greet-logo svg{width:24px;height:24px}
-  .greet-sub{font-size:13px;margin-bottom:22px}
   .topbar{flex-wrap:nowrap}
   .model-btn .m-name{max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }

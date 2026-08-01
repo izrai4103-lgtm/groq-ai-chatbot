@@ -7,18 +7,6 @@ import { loadProfile, saveProfile, DEFAULT_PROFILE } from '../lib/profile'
 import { loadSession, saveSession, clearSession } from '../lib/auth-sandbox'
 
 /* ===== CONSTANTS ===== */
-const WELCOME = 'Halo! Aku Zanco-Ai. Ada yang bisa aku bantu?'
-const SUGGESTIONS = [
-  'Apa itu artificial intelligence?',
-  'Jelaskan cara kerja blockchain',
-  'Buatkan puisi tentang coding',
-  'Apa perbedaan HTTP dan HTTPS?',
-]
-const TIPS = [
-  'Aktifkan 🌐 Web Research untuk info terbaru',
-  'Pilih 🧠 Thinking untuk analisa mendalam',
-  'Coba 🗣️ Multi-AI — 4 model saling berdiskusi',
-]
 const MODELS = [
   { id: 'chat', icon: '💬', name: 'Zanco-Ai', desc: 'Respons cepat & ramah' },
   { id: 'thinking', icon: '🧠', name: 'Thinking', desc: 'Analisa mendalam & logis' },
@@ -283,7 +271,7 @@ export default function Home() {
   const [activeId, setActiveId] = useState(initial.activeId)
   const [messages, setMessages] = useState(() => {
     const c = initial.chats.find(c => c.id === initial.activeId)
-    return c?.messages ?? [{ id: nextId(), role: 'assistant', content: WELCOME }]
+    return c?.messages ?? []
   })
   const [chatTitle, setChatTitle] = useState(() => {
     const c = initial.chats.find(c => c.id === initial.activeId)
@@ -309,8 +297,6 @@ export default function Home() {
   const [showProfile, setShowProfile] = useState(false)
   const [profile, setProfile] = useState(loadProfile)
   const [session, setSession] = useState(loadSession)
-  const [tipIdx, setTipIdx] = useState(0)
-
 
   const chatRef = useRef(null)
   const taRef = useRef(null)
@@ -583,7 +569,7 @@ export default function Home() {
     abortRef.current?.abort()
     setLoading(false)
     setActiveId(null)
-    setMessages([{ id: nextId(), role: 'assistant', content: WELCOME }])
+    setMessages([])
     setChatTitle('Zanco-Ai')
     setError(''); setInput(''); setFile(null); setRatings({}); setWebSearch(false)
     setShowArchive(false)
@@ -608,7 +594,7 @@ export default function Home() {
     setChats(prev => prev.map(c => c.id === id ? { ...c, archived: true, updatedAt: Date.now() } : c))
     if (id === activeId) {
       setActiveId(null)
-      setMessages([{ id: nextId(), role: 'assistant', content: WELCOME }])
+      setMessages([])
       setChatTitle('Zanco-Ai')
       setError(''); setInput('')
     }
@@ -630,7 +616,7 @@ export default function Home() {
     setChats(prev => prev.filter(c => c.id !== id))
     if (id === activeId) {
       setActiveId(null)
-      setMessages([{ id: nextId(), role: 'assistant', content: WELCOME }])
+      setMessages([])
       setChatTitle('Zanco-Ai')
       setError(''); setInput('')
     }
@@ -673,11 +659,6 @@ export default function Home() {
     navigator.clipboard.writeText(window.location.href).then(() => showToast('Link disalin!'))
   }, [showToast])
 
-  const pickSuggestion = useCallback((text) => {
-    setInput(text)
-    setTimeout(() => taRef.current?.focus(), 50)
-  }, [])
-
   /* ===== AUTO RESIZE ===== */
   useEffect(() => {
     const ta = taRef.current
@@ -688,13 +669,6 @@ export default function Home() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() }
   }, [handleSubmit])
 
-  const greeting = messages.length === 1 && messages[0].role === 'assistant' && !messages[0].streaming
-
-  useEffect(() => {
-    if (!greeting) return
-    const t = setInterval(() => setTipIdx(i => (i + 1) % TIPS.length), 5000)
-    return () => clearInterval(t)
-  }, [greeting])
   const placeholder = model === 'conference'
     ? 'Masukkan topik diskusi 4 AI...'
     : model === 'research'
@@ -847,52 +821,32 @@ export default function Home() {
 
         {/* CHAT */}
         <div className="chat" ref={chatRef} onScroll={handleScroll}>
-          {greeting ? (
-            <div className="greet">
-              <div className="greet-logo">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z" /><path d="M12 6v6l4 2" /></svg>
+          <div className="chat-inner">
+            {messages.map((msg, i) => (
+              <ChatMessage
+                key={msg.id}
+                msg={msg}
+                isLast={i === messages.length - 1}
+                loading={loading}
+                onEdit={editMessage}
+                onRegenerate={regenerate}
+                onRate={rate}
+                rating={ratings[msg.id]}
+                onCopy={copy}
+                copied={copiedId === msg.id}
+                onStreamDone={finishStream}
+                onStreamTick={() => autoScroll(false)}
+              />
+            ))}
+            {loading && <TypingIndicator model={model} />}
+            {error && (
+              <div className="err">
+                <span>⚠️</span> {error}
+                <button onClick={retry} title="Coba lagi">↻ Coba lagi</button>
+                <button onClick={() => setError('')}>✕</button>
               </div>
-              <div className="greet-badge"><span className="dot" /> Powered by Groq AI</div>
-              <h1>Ada yang bisa saya bantu?</h1>
-              <div className="greet-sub">Saya Zanco-Ai — siap membantu menjawab, menganalisa, meneliti, hingga membuat kode untukmu.</div>
-              <div className="greet-grid">
-                {SUGGESTIONS.map((s, i) => (
-                  <button key={i} className="greet-btn" style={{ animationDelay: `${i * 70}ms` }} onClick={() => pickSuggestion(s)}>
-                    {s}
-                    <svg className="g-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-                  </button>
-                ))}
-              </div>
-              <div className="greet-tip" key={tipIdx}>💡 {TIPS[tipIdx]}</div>
-            </div>
-          ) : (
-            <div className="chat-inner">
-              {messages.map((msg, i) => (
-                <ChatMessage
-                  key={msg.id}
-                  msg={msg}
-                  isLast={i === messages.length - 1}
-                  loading={loading}
-                  onEdit={editMessage}
-                  onRegenerate={regenerate}
-                  onRate={rate}
-                  rating={ratings[msg.id]}
-                  onCopy={copy}
-                  copied={copiedId === msg.id}
-                  onStreamDone={finishStream}
-                  onStreamTick={() => autoScroll(false)}
-                />
-              ))}
-              {loading && <TypingIndicator model={model} />}
-              {error && (
-                <div className="err">
-                  <span>⚠️</span> {error}
-                  <button onClick={retry} title="Coba lagi">↻ Coba lagi</button>
-                  <button onClick={() => setError('')}>✕</button>
-                </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* SCROLL BOTTOM */}
