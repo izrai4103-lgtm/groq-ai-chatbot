@@ -166,9 +166,11 @@ textarea{font-family:var(--font)}
 .av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;font-weight:600}
 .av.user{background:#5436da;color:#fff;font-size:14px}
 .av.assistant{
-  background:linear-gradient(135deg,#19c37d,#0ea5e9);
-  color:#fff;font-size:11px;box-shadow:0 2px 8px rgba(25,195,125,.35)
+  background:#fff;
+  color:#fff;font-size:11px;box-shadow:0 2px 8px rgba(25,195,125,.35);
+  overflow:hidden;padding:0
 }
+.av-img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%}
 .msg-c{flex:1;min-width:0;padding-top:4px}
 
 /* ===== LAMPIRAN FILE (vision) ===== */

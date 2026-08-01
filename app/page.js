@@ -170,7 +170,7 @@ function ChatMessage({
       <div className="msg-row">
         <div className="msg-av">
           <div className={`av ${isUser ? 'user' : 'assistant'}`}>
-            {isUser ? 'U' : 'AI'}
+            {isUser ? 'U' : <img src="/ai-avatar.png" alt="AI" className="av-img" />}
           </div>
         </div>
         <div className="msg-c">
@@ -249,7 +249,7 @@ function TypingIndicator({ model = 'chat' }) {
   return (
     <div className="msg assistant">
       <div className="msg-row">
-        <div className="msg-av"><div className="av assistant">AI</div></div>
+        <div className="msg-av"><div className="av assistant"><img src="/ai-avatar.png" alt="AI" className="av-img" /></div></div>
         <div className="msg-c">
           <div className={`typing ${model}`}>
             <span className="typ-dot"><span></span><span></span><span></span></span>
