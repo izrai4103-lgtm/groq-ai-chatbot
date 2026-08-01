@@ -96,7 +96,15 @@ textarea{font-family:var(--font)}
 
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:55}
 /* ===== MAIN ===== */
-.main{flex:1;display:flex;flex-direction:column;min-width:0;height:100%;background:var(--bg)}
+.main{
+  flex:1;display:flex;flex-direction:column;min-width:0;height:100%;
+  background-color:#0a0a0a;
+  background-image:url('/bg-chat.jpg');
+  background-position:center center;
+  background-size:cover;
+  background-repeat:no-repeat;
+  background-attachment:fixed;
+}
 
 /* ===== TOPBAR ===== */
 .topbar{
@@ -151,8 +159,8 @@ textarea{font-family:var(--font)}
 
 /* ===== MESSAGES ===== */
 .msg{padding:16px 20px}
-.msg.user{background:var(--bg-msg-user)}
-.msg.assistant{background:transparent}
+.msg.user{background:rgba(30,30,30,.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.msg.assistant{background:rgba(15,15,15,.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
 .msg-row{max-width:var(--w);margin:0 auto;display:flex;gap:16px;align-items:flex-start}
 .msg-av{width:30px;flex-shrink:0;display:flex;justify-content:center}
 .av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;font-weight:600}
