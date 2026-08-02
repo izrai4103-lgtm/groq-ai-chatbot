@@ -11,6 +11,7 @@ export async function POST(request) {
     }
 
     const { getFeatureKeys } = await import('@/lib/provider-keys.js')
+    const { MATH_TUTOR_PROMPT } = await import('@/lib/math-tutor-prompt.js')
     const researchKeys = getFeatureKeys('research')
     const apiKey = researchKeys[0]?.key
     if (!apiKey) {
@@ -26,7 +27,7 @@ export async function POST(request) {
       body: JSON.stringify({
         model,
         messages: [
-          { role: 'system', content: `Kamu adalah Code Executor. Simulasikan eksekusi kode ${lang} ini dan berikan OUTPUT yang akurat. Jawab HANYA dengan JSON: {"output": "hasil", "error": null} atau {"output": "", "error": "pesan error"}` },
+          { role: 'system', content: `Kamu adalah Code Executor. Simulasikan eksekusi kode ${lang} ini dan berikan OUTPUT yang akurat. Jawab HANYA dengan JSON: {"output": "hasil", "error": null} atau {"output": "", "error": "pesan error"}\n\nKEMAMPUAN MATEMATIKA (otak tambahan, terpisah dari identitas utama):\n${MATH_TUTOR_PROMPT}` },
           { role: 'user', content: `Jalankan kode ini:\n\`\`\`${lang}\n${code}\n\`\`\`` }
         ],
         temperature: 0.3,

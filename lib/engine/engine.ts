@@ -10,6 +10,7 @@ import { callGroqWithTools, EngineError } from './groq'
 import type { GroqToolDefinition, GroqToolMessage } from './groq'
 import { AI_TOOLS, TOOL_GUIDANCE_PROMPT, executeTool } from '@/lib/tool-sandbox'
 import { BASE_SYSTEM_PROMPT } from '../schema-prompt'
+import { MATH_TUTOR_PROMPT } from '../math-tutor-prompt'
 import { checkRateLimit } from './rate-limit'
 import type { ChatMessage, EngineErrorCode, EngineResult, ModelKind, ScanResult } from './types'
 
@@ -159,6 +160,7 @@ export async function runChat(
     })()
     const systemPrompt = [
       compactBase,
+      MATH_TUTOR_PROMPT,
       JAILBREAK_POLICY_PROMPT,
       context,
       TOOL_GUIDANCE_PROMPT,
