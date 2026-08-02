@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     const userKey = isLoggedIn ? guestId : `ip:${ip}`
     const userStatus = await getUserTokenStatus(userKey, isLoggedIn)
     if (userStatus.remaining <= 0) {
-      return Response.json({ error: 'Kuota token kamu habis. Reset otomatis dalam 3 menit.' }, { status: 429 })
+      return Response.json({ error: 'Kuota token kamu habis. Reset otomatis dalam 1 menit.' }, { status: 429 })
     }
 
     const before = getCompletionRecorded()
