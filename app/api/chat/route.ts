@@ -21,7 +21,11 @@ const STATUS_MAP: Record<EngineErrorCode, number> = {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json().catch(() => null)) as { messages?: unknown; guestId?: unknown } | null
+    const body = (await request.json().catch(() => null)) as {
+      messages?: unknown
+      guestId?: unknown
+      pageContext?: unknown
+    } | null
 
     // Dapatkan IP client
     const ip =
@@ -45,7 +49,13 @@ export async function POST(request: Request) {
 
     // Jalankan di mesin utama (TypeScript engine)
     const before = getCompletionRecorded()
-    const result = await runChat(body?.messages, ip)
+    // Konteks halaman dari browser user (AI Website Controller) — dipakai model
+    // kalau user minta aksi nyata di website (isi form, klik, scroll, dll).
+    const pageCtx = body?.pageContext
+    const context = pageCtx
+      ? `KONTEKS HALAMAN SAAT INI (langsung dari browser user):\n${JSON.stringify(pageCtx).slice(0, 2500)}`
+      : undefined
+    const result = await runChat(body?.messages, ip, context)
     await flushTokenUsage()
     await deductUserTokens(userKey, isLoggedIn, getCompletionRecorded() - before)
 
@@ -69,7 +79,10 @@ export async function POST(request: Request) {
       )
     }
 
-    return Response.json({ content: result.content }, { headers })
+    return Response.json(
+      { content: result.content, websiteAction: result.websiteAction ?? null },
+      { headers },
+    )
   } catch (err) {
     console.error('API Route Error:', err)
     return Response.json({ error: 'Internal server error' }, { status: 500 })

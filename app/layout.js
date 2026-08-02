@@ -8,7 +8,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="id">
-      <body>{children}</body>
+      <body>
+        <script src="/ai-website-controller.js" defer />
+        {children}
+      </body>
     </html>
   )
 }

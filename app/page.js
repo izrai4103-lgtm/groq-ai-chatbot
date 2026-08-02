@@ -460,26 +460,82 @@ export default function Home() {
     }
 
     try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: form ? undefined : { 'Content-Type': 'application/json' },
-        body: form ? form : JSON.stringify(body),
-        signal: controller.signal,
-      })
-      if (!res.ok) {
-        const e2 = await res.json().catch(() => ({}))
-        throw new Error(e2.error || `Error ${res.status}`)
-      }
-      const data = await res.json()
-
+      // AI Website Controller: model bisa minta aksi nyata di halaman ini
+      // (klik, isi form, navigasi, scroll). Aksi dieksekusi di browser user,
+      // hasilnya dikirim balik ke model sampai jawaban teks final keluar.
+      let currentMessages = messageList
       let content = ''
-      if (endpoint === '/api/chat' || endpoint === '/api/upload') {
-        content = data.content
-      } else if (endpoint === '/api/think') {
-        content = (data.research || data.answer || data.thinking || '')
+      let data = null
+      let actionRounds = 0
+      const MAX_WEBSITE_ACTION_ROUNDS = 4
+
+      for (;;) {
+        let fetchBody = form
+        if (!fetchBody) {
+          if (endpoint === '/api/think') {
+            fetchBody = JSON.stringify(body)
+          } else {
+            // Sertakan "peta" halaman saat ini supaya model tahu tombol/input
+            // apa saja yang ada, sebelum memutuskan aksi.
+            let pageContext = null
+            try {
+              if (typeof window !== 'undefined' && window.AIWebsiteController) {
+                pageContext = window.AIWebsiteController.getPageContext()
+              }
+            } catch (e) { pageContext = null }
+
+            fetchBody = JSON.stringify({
+              messages: currentMessages.map(m => ({ role: m.role, content: m.content })),
+              guestId: session?.guestId || '',
+              pageContext,
+            })
+          }
+        }
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: form ? undefined : { 'Content-Type': 'application/json' },
+          body: fetchBody,
+          signal: controller.signal,
+        })
+        if (!res.ok) {
+          const e2 = await res.json().catch(() => ({}))
+          throw new Error(e2.error || `Error ${res.status}`)
+        }
+        data = await res.json()
+
+        // Model minta aksi website → eksekusi di browser, lanjut ronde berikutnya.
+        if (data.websiteAction && typeof window !== 'undefined' && window.AIWebsiteController) {
+          if (actionRounds >= MAX_WEBSITE_ACTION_ROUNDS) break
+          actionRounds++
+          const { name, arguments: args } = data.websiteAction
+          logUX('website-action', name)
+          showToast(`🤖 AI mengendalikan halaman: ${name}`)
+          let actionResult
+          try {
+            actionResult = window.AIWebsiteController.executeAction(name, args || {})
+          } catch (e) {
+            actionResult = { success: false, error: e instanceof Error ? e.message : String(e) }
+          }
+          currentMessages = [
+            ...currentMessages,
+            {
+              role: 'user',
+              content: `[Hasil aksi website "${name}" (args: ${JSON.stringify(args || {})}): ${JSON.stringify(actionResult)}] Lanjutkan dan jawab user dengan ringkas.`,
+            },
+          ]
+          continue
+        }
+
+        if (endpoint === '/api/chat' || endpoint === '/api/upload') {
+          content = data.content
+        } else if (endpoint === '/api/think') {
+          content = (data.research || data.answer || data.thinking || '')
+        }
+        break
       }
 
-      if (!content) throw new Error(data.error || 'Respon kosong')
+      if (!content) throw new Error(data?.error || 'Respon kosong')
 
       logUX('delivered')
       setMessages(prev => [
@@ -495,7 +551,7 @@ export default function Home() {
       abortRef.current = null
       pollTokenUsage()
     }
-  }, [loading, webSearch, animPref, pollTokenUsage])
+  }, [loading, webSearch, animPref, pollTokenUsage, showToast])
 
   const handleSubmit = useCallback((e) => {
     e?.preventDefault()

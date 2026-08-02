@@ -54,6 +54,8 @@ export interface EngineResult {
   content: string | null
   error: EngineError | null
   meta: EngineMeta
+  /** Aksi website yang diminta model, dieksekusi oleh frontend di browser. */
+  websiteAction?: { name: string; arguments: Record<string, unknown> } | null
 }
 
 export interface ScanResult {

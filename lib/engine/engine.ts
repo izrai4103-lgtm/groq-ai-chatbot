@@ -12,6 +12,7 @@ import { AI_TOOLS, TOOL_GUIDANCE_PROMPT, executeTool } from '@/lib/tool-sandbox'
 import { BASE_SYSTEM_PROMPT } from '../schema-prompt'
 import { MATH_TUTOR_PROMPT } from '../math-tutor-prompt'
 import { checkRateLimit } from './rate-limit'
+import { WEBSITE_CONTROL_PROMPT, WEBSITE_TOOLS, WEBSITE_TOOL_NAMES } from '../website-control'
 import type { ChatMessage, EngineErrorCode, EngineResult, ModelKind, ScanResult } from './types'
 
 const jailbreakScanner = new JailbreakScanner()
@@ -182,6 +183,7 @@ export async function runChat(
       JAILBREAK_POLICY_PROMPT,
       context,
       TOOL_GUIDANCE_PROMPT,
+      WEBSITE_CONTROL_PROMPT,
     ]
       .filter(Boolean)
       .join('\n\n')
@@ -201,7 +203,7 @@ export async function runChat(
         opts.model || 'chat',
         systemPrompt,
         chatMessages,
-        AI_TOOLS as GroqToolDefinition[],
+        [...(AI_TOOLS as GroqToolDefinition[]), ...(WEBSITE_TOOLS as GroqToolDefinition[])],
         toolIntent ? { maxTokens: 2048 } : undefined,
       )
 
@@ -222,6 +224,23 @@ export async function runChat(
 
       let done = false
       for (const tc of modelResult.toolCalls) {
+        // Tool website TIDAK dieksekusi di server — dikirim ke frontend
+        // untuk dieksekusi di browser, hasilnya dikembalikan di request berikutnya.
+        if (WEBSITE_TOOL_NAMES.has(tc.name)) {
+          let args: Record<string, unknown> = {}
+          try {
+            args = JSON.parse(tc.arguments || '{}') as Record<string, unknown>
+          } catch {
+            args = { parseError: tc.arguments }
+          }
+          return {
+            success: true,
+            content: '',
+            error: null,
+            meta: {},
+            websiteAction: { name: tc.name, arguments: args },
+          }
+        }
         let toolResult: unknown
         try {
           const args = JSON.parse(tc.arguments || '{}') as Record<string, unknown>
