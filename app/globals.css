@@ -101,7 +101,7 @@ textarea{font-family:var(--font)}
   background-color:#0a0a0a;
   background-image:url('/bg-chat.jpg');
   background-position:center center;
-  background-size:cover;
+  background-size:contain;
   background-repeat:no-repeat;
   background-attachment:fixed;
 }
