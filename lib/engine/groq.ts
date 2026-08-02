@@ -5,11 +5,11 @@ import { getGroqKeys } from '../groq-keys'
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 export const MODELS: Record<ModelKind, ModelSpec> = {
-  chat: { key: 'GROQ_API_KEY', model: process.env.CHAT_MODEL || 'llama-3.3-70b-versatile', maxTokens: 1000, name: 'Chat' },
+  chat: { key: 'GROQ_API_KEY', model: process.env.CHAT_MODEL || 'llama-3.1-8b-instant', maxTokens: 160, name: 'Chat' },
   thinking: { key: 'GROQ_API_KEY_2', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Thinking' },
   research: { key: 'GROQ_API_KEY_3', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Research' },
   creative: { key: 'GROQ_API_KEY_4', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Creative' },
-  upload: { key: 'GROQ_API_KEY', model: process.env.UPLOAD_MODEL || 'llama-3.3-70b-versatile', maxTokens: 160, name: 'Upload' },
+  upload: { key: 'GROQ_API_KEY', model: process.env.UPLOAD_MODEL || 'llama-3.1-8b-instant', maxTokens: 160, name: 'Upload' },
 }
 
 export class EngineError extends Error {
@@ -187,7 +187,7 @@ export async function callGroqWithTools(
   const spec = MODELS[kind]
 
   const temperature = options.temperature ?? 0.7
-  const maxTokens = options.maxTokens ?? 1000
+  const maxTokens = options.maxTokens ?? spec.maxTokens
   const timeoutMs = options.timeoutMs ?? 60_000
 
   const controller = new AbortController()
@@ -217,7 +217,7 @@ export async function callGroqWithTools(
             model: spec.model,
             messages: [{ role: 'system', content: systemPrompt }, ...messages],
             temperature: 0.2,
-            max_tokens: maxTokens,
+            max_tokens: Math.max(maxTokens, 800),
             tools,
             tool_choice: 'auto',
           },
@@ -256,6 +256,7 @@ export async function callGroqWithTools(
             function?: { name?: string; arguments?: string }
           }>
         }
+        finish_reason?: string
       }>
     }
 
@@ -266,6 +267,44 @@ export async function callGroqWithTools(
       name: tc.function?.name || '',
       arguments: tc.function?.arguments || '{}',
     }))
+
+    // max_tokens kecil (160) bisa memotong argumen tool. Kalau terpotong /
+    // JSON-nya tidak valid, ulangi sekali dengan ruang lebih besar.
+    const finishReason = data.choices?.[0]?.finish_reason
+    const truncated = finishReason === 'length' || toolCalls.some(tc => {
+      try { JSON.parse(tc.arguments); return false } catch { return true }
+    })
+    if (truncated && maxTokens < 800) {
+      const retry = await fetchGroq(
+        {
+          model: spec.model,
+          messages: [{ role: 'system', content: systemPrompt }, ...messages],
+          temperature: 0.2,
+          max_tokens: 800,
+          tools,
+          tool_choice: 'auto',
+        },
+        timeoutMs,
+        controller.signal,
+      )
+      if (retry.res.ok) {
+        const data2 = await retry.res.json() as {
+          choices?: Array<{
+            message?: { content?: string | null; tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: string } }> }
+            finish_reason?: string
+          }>
+        }
+        const m2 = data2.choices?.[0]?.message
+        return {
+          content: m2?.content ?? '',
+          toolCalls: (m2?.tool_calls || []).map(tc => ({
+            id: tc.id || '',
+            name: tc.function?.name || '',
+            arguments: tc.function?.arguments || '{}',
+          })),
+        }
+      }
+    }
 
     return { content, toolCalls }
   } catch (err) {
