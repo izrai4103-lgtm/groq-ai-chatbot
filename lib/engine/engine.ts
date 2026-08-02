@@ -8,12 +8,14 @@ import { thinkAndResearch } from '../code-executor'
 import { holdConference } from '../model-conference'
 import { callGroqWithTools, EngineError } from './groq'
 import type { GroqToolDefinition, GroqToolMessage } from './groq'
-import portfolioTools from '@/lib/portfolioPdfTool'
+import { AI_TOOLS, TOOL_GUIDANCE_PROMPT, executeTool } from '@/lib/tool-sandbox'
 import { BASE_SYSTEM_PROMPT } from '../schema-prompt'
 import { checkRateLimit } from './rate-limit'
 import type { ChatMessage, EngineErrorCode, EngineResult, ModelKind, ScanResult } from './types'
 
 const jailbreakScanner = new JailbreakScanner()
+
+const MAX_TOOL_ROUNDS = 4
 
 /* ===== Konstanta ===== */
 const MAX_INPUT_LENGTH = 8000
@@ -68,43 +70,6 @@ function err(code: EngineErrorCode, message: string, meta?: unknown): EngineResu
 
 function ok(content: string, meta: EngineResult['meta'] = {}): EngineResult {
   return { success: true, content, error: null, meta }
-}
-
-/* ============================================================
- * TOOL AI — generate PDF portofolio & analisis website
- * Alur integrasi: sandbox → semua models AI (tool calling Groq)
- * ============================================================ */
-const PORTFOLIO_TOOLS: GroqToolDefinition[] = [
-  portfolioTools.analyzeWebsiteTool as GroqToolDefinition,
-  portfolioTools.generatePortfolioPdfTool as GroqToolDefinition,
-]
-
-const TOOL_GUIDANCE_PROMPT = `
-## FUNGSI TAMBAHAN (TOOL AI)
-
-Kamu punya 2 fungsi (tool) yang bisa dipanggil sendiri:
-
-1. analyze_website — membuka URL website sungguhan di server lalu mengambil judul, deskripsi, heading, cuplikan teks, screenshot, status HTTP, waktu load, mobile-friendly, dan error console. Gunakan saat user minta portofolio/laporan dari sebuah URL (misal "buatkan portofolio dari website https://..."). Setelah hasilnya masuk, rangkum fitur & kesan website itu dengan kata-katamu sendiri, jangan salin mentah-mentah.
-
-2. generate_portfolio_pdf — membuat file PDF portofolio profesional dari data yang sudah terkumpul lewat percakapan (nama, jabatan, ringkasan, skill, pengalaman, proyek, pendidikan, kontak). Panggil HANYA setelah data penting lengkap; jangan mengarang data yang belum disebutkan user.
-
-Alur yang benar:
-- User minta portofolio dari URL → panggil analyze_website → rangkum hasilnya → panggil generate_portfolio_pdf (screenshot dari hasil analisis boleh dipakai di projects[].screenshot) → sampaikan link PDF yang dikembalikan tool ke user.
-- User minta portofolio tanpa URL → kumpulkan data lewat obrolan dulu → panggil generate_portfolio_pdf → sampaikan link PDF.
-- Kalau analyze_website gagal (ok: false) → beri tahu user, jangan mengarang data website.
-`
-
-const MAX_TOOL_ROUNDS = 4
-
-async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
-  switch (name) {
-    case 'analyze_website':
-      return portfolioTools.runAnalyzeWebsite(args as { url: string })
-    case 'generate_portfolio_pdf':
-      return portfolioTools.runGeneratePortfolioPdf(args)
-    default:
-      return { ok: false, error: `Tool tidak dikenal: ${name}` }
-  }
 }
 
 /* ============================================================
@@ -194,7 +159,7 @@ export async function runChat(
         opts.model || 'chat',
         systemPrompt,
         chatMessages,
-        PORTFOLIO_TOOLS,
+        AI_TOOLS as GroqToolDefinition[],
       )
 
       if (modelResult.toolCalls.length === 0) {
