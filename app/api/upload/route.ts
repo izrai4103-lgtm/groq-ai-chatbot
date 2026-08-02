@@ -1,6 +1,6 @@
 import { runChat } from '@/lib/engine/engine'
 import { runVisionPipeline } from '@/lib/engine/vision'
-import { deductUserTokens, flushTokenUsage, getTotalRecorded, getUserTokenStatus } from '@/lib/token-usage'
+import { deductUserTokens, flushTokenUsage, getCompletionRecorded, getUserTokenStatus } from '@/lib/token-usage'
 import { JailbreakScanner, verdictToError } from '@/lib/jailbreak-scanner'
 import type { EngineErrorCode, ScanResult } from '@/lib/engine/types'
 
@@ -77,10 +77,10 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Kuota token kamu habis untuk hari ini. Reset tengah malam.' }, { status: 429 })
     }
 
-    const before = getTotalRecorded()
+    const before = getCompletionRecorded()
     const result = await runChat(messages, ip, vision.context, { model: 'upload' })
     await flushTokenUsage()
-    await deductUserTokens(userKey, isLoggedIn, getTotalRecorded() - before)
+    await deductUserTokens(userKey, isLoggedIn, getCompletionRecorded() - before)
     const headers: Record<string, string> = {
       'X-RateLimit-Remaining': String(result.meta.rateLimit?.remaining ?? ''),
       'X-RateLimit-Reset': String(result.meta.rateLimit?.resetAt ?? ''),

@@ -140,10 +140,10 @@ export async function callGroq(
 
     const data = await res.json() as {
       choices?: Array<{ message?: { content?: string } }>
-      usage?: { total_tokens?: number }
+      usage?: { total_tokens?: number; completion_tokens?: number }
     }
     const content = data.choices?.[0]?.message?.content ?? ''
-    recordUsage(spec.model, kind, data.usage?.total_tokens)
+    recordUsage(spec.model, kind, data.usage?.total_tokens, data.usage?.completion_tokens)
 
     if (!content) {
       throw new EngineError('AI_EMPTY_RESPONSE', 'Model AI mengembalikan respon kosong')
@@ -250,10 +250,10 @@ export async function callGroqWithTools(
         if (retry.res.ok) {
           const data2 = await retry.res.json() as {
             choices?: Array<{ message?: { content?: string | null; tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: string } }> } }>
-            usage?: { total_tokens?: number }
+            usage?: { total_tokens?: number; completion_tokens?: number }
           }
           const m2 = data2.choices?.[0]?.message
-          recordUsage(spec.model, kind, data2.usage?.total_tokens)
+          recordUsage(spec.model, kind, data2.usage?.total_tokens, data2.usage?.completion_tokens)
           return {
             content: m2?.content ?? '',
             toolCalls: (m2?.tool_calls || []).map(tc => ({
@@ -290,12 +290,12 @@ export async function callGroqWithTools(
         }
         finish_reason?: string
       }>
-      usage?: { total_tokens?: number }
+      usage?: { total_tokens?: number; completion_tokens?: number }
     }
 
     const message = data.choices?.[0]?.message
     const content = message?.content ?? ''
-    recordUsage(spec.model, kind, data.usage?.total_tokens)
+    recordUsage(spec.model, kind, data.usage?.total_tokens, data.usage?.completion_tokens)
     const toolCalls: GroqToolCall[] = (message?.tool_calls || []).map(tc => ({
       id: tc.id || '',
       name: tc.function?.name || '',
@@ -327,10 +327,10 @@ export async function callGroqWithTools(
             message?: { content?: string | null; tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: string } }> }
             finish_reason?: string
           }>
-          usage?: { total_tokens?: number }
+          usage?: { total_tokens?: number; completion_tokens?: number }
         }
         const m2 = data2.choices?.[0]?.message
-        recordUsage(spec.model, kind, data2.usage?.total_tokens)
+        recordUsage(spec.model, kind, data2.usage?.total_tokens, data2.usage?.completion_tokens)
         return {
           content: m2?.content ?? '',
           toolCalls: (m2?.tool_calls || []).map(tc => ({

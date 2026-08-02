@@ -1,5 +1,5 @@
 import { runThinking } from '@/lib/engine/engine'
-import { deductUserTokens, flushTokenUsage, getTotalRecorded, getUserTokenStatus } from '@/lib/token-usage'
+import { deductUserTokens, flushTokenUsage, getCompletionRecorded, getUserTokenStatus } from '@/lib/token-usage'
 
 export const maxDuration = 60
 
@@ -21,10 +21,10 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Kuota token kamu habis untuk hari ini. Reset tengah malam.' }, { status: 429 })
     }
 
-    const before = getTotalRecorded()
+    const before = getCompletionRecorded()
     const result = await runThinking(body?.question, ip, Boolean(body?.web))
     await flushTokenUsage()
-    await deductUserTokens(userKey, isLoggedIn, getTotalRecorded() - before)
+    await deductUserTokens(userKey, isLoggedIn, getCompletionRecorded() - before)
 
     if (result.blockCode) {
       const status = result.blockCode === 'USER_BANNED' ? 429 : 403
