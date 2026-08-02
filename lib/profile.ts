@@ -3,9 +3,42 @@
 export type Profile = {
   name: string
   avatar: string // dataURL base64 dari foto profil
+  nik: string
+  tempatLahir: string
+  tanggalLahir: string
+  jenisKelamin: string
+  golonganDarah: string
+  alamat: string
+  rt: string
+  rw: string
+  kelDesa: string
+  kecamatan: string
+  agama: string
+  statusPerkawinan: string
+  pekerjaan: string
+  kewarganegaraan: string
+  wilayah: string
 }
 
-export const DEFAULT_PROFILE: Profile = { name: 'DZarif', avatar: '' }
+export const DEFAULT_PROFILE: Profile = {
+  name: 'DZarif',
+  avatar: '',
+  nik: '',
+  tempatLahir: '',
+  tanggalLahir: '',
+  jenisKelamin: 'Laki-laki',
+  golonganDarah: 'O',
+  alamat: '',
+  rt: '',
+  rw: '',
+  kelDesa: '',
+  kecamatan: '',
+  agama: 'Islam',
+  statusPerkawinan: 'Belum Kawin',
+  pekerjaan: '',
+  kewarganegaraan: 'Indonesia',
+  wilayah: '',
+}
 
 const PROFILE_KEY = 'zanco_profile_v1'
 
@@ -15,9 +48,11 @@ export function loadProfile(): Profile {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Profile> | null
       if (parsed && typeof parsed === 'object') {
+        const merged = { ...DEFAULT_PROFILE, ...parsed }
         return {
-          name: typeof parsed.name === 'string' && parsed.name.trim() ? parsed.name : DEFAULT_PROFILE.name,
-          avatar: typeof parsed.avatar === 'string' ? parsed.avatar : '',
+          ...merged,
+          name: typeof merged.name === 'string' && merged.name.trim() ? merged.name.trim() : DEFAULT_PROFILE.name,
+          avatar: typeof merged.avatar === 'string' ? merged.avatar : '',
         }
       }
     }
