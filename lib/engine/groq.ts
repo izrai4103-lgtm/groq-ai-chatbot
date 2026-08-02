@@ -7,11 +7,11 @@ import { recordRateLimit, recordUsage } from '../token-usage'
  * jadi kuota TPM per fitur tidak saling berebut dan 429 jauh lebih jarang.
  */
 export const MODELS: Record<ModelKind, ModelSpec> = {
-  chat: { feature: 'chat', model: process.env.CHAT_MODEL || 'llama-3.1-8b-instant', maxTokens: 160, name: 'Chat' },
-  thinking: { feature: 'thinking', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Thinking' },
-  research: { feature: 'research', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Research' },
-  creative: { feature: 'creative', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Creative' },
-  upload: { feature: 'upload', model: process.env.UPLOAD_MODEL || 'llama-3.1-8b-instant', maxTokens: 160, name: 'Upload' },
+  chat: { feature: 'chat', model: process.env.CHAT_MODEL || 'openai/gpt-oss-120b', maxTokens: 160, name: 'Chat' },
+  thinking: { feature: 'thinking', model: 'openai/gpt-oss-120b', maxTokens: 160, name: 'Thinking' },
+  research: { feature: 'research', model: 'openai/gpt-oss-120b', maxTokens: 160, name: 'Research' },
+  creative: { feature: 'creative', model: 'openai/gpt-oss-120b', maxTokens: 160, name: 'Creative' },
+  upload: { feature: 'upload', model: process.env.UPLOAD_MODEL || 'openai/gpt-oss-120b', maxTokens: 160, name: 'Upload' },
 }
 
 export class EngineError extends Error {

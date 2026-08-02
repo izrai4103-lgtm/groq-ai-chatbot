@@ -17,7 +17,7 @@ export async function POST(request) {
     if (!apiKey) {
       return Response.json({ success: false, error: 'API Key tidak tersedia' })
     }
-    const model = researchKeys[0]?.model || 'llama-3.1-8b-instant'
+    const model = researchKeys[0]?.model || 'openai/gpt-oss-120b'
     const url = researchKeys[0]?.url || 'https://api.groq.com/openai/v1/chat/completions'
 
     const lang = (language || 'javascript').toLowerCase()
