@@ -231,6 +231,24 @@ export async function runChat(
       if (done) break
     }
 
+    // Model kadang diam (konten kosong tanpa tool call) — coba sekali lagi
+    // dengan instruksi tegas sebelum menyerah.
+    if (!finalContent.trim()) {
+      try {
+        const fb = await callGroqWithTools(
+          opts.model || 'chat',
+          systemPrompt,
+          [...chatMessages, { role: 'user', content: 'Jawab langsung dengan satu atau dua kalimat tanpa memanggil tool.' }] as GroqToolMessage[],
+          AI_TOOLS as GroqToolDefinition[],
+          { maxTokens: 400, temperature: 0.3 },
+        )
+        if (fb.content && fb.content.trim()) finalContent = fb.content
+      } catch { /* abaikan — error asli tetap dilaporkan */ }
+      if (!finalContent.trim()) {
+        return err('AI_EMPTY_RESPONSE', 'Model AI mengembalikan respon kosong, coba lagi sebentar')
+      }
+    }
+
     return ok(finalContent, meta)
   } catch (e) {
     if (e instanceof EngineError) {

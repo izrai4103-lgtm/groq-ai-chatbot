@@ -507,7 +507,7 @@ export default function Home() {
         content = formatConference(data)
       }
 
-      if (!content) throw new Error('Respon kosong')
+      if (!content) throw new Error(data.error || 'Respon kosong')
 
       logUX('delivered', { model })
       setMessages(prev => [

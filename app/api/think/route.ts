@@ -31,6 +31,10 @@ export async function POST(request: Request) {
       return Response.json({ error: result.error }, { status })
     }
 
+    if (result.error) {
+      return Response.json({ error: result.error }, { status: 500 })
+    }
+
     return Response.json(result)
   } catch (err) {
     console.error('Think error:', err)

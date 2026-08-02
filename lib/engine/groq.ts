@@ -305,7 +305,8 @@ export async function callGroqWithTools(
     // max_tokens kecil (160) bisa memotong argumen tool. Kalau terpotong /
     // JSON-nya tidak valid, ulangi sekali dengan ruang lebih besar.
     const finishReason = data.choices?.[0]?.finish_reason
-    const truncated = finishReason === 'length' || toolCalls.some(tc => {
+    const hasText = (content || '').trim().length > 0
+    const truncated = finishReason === 'length' || (!hasText && toolCalls.length === 0) || toolCalls.some(tc => {
       try { JSON.parse(tc.arguments); return false } catch { return true }
     })
     if (truncated && maxTokens < 800) {
