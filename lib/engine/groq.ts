@@ -84,14 +84,18 @@ async function fetchGroq(
   const first = await tryKeys()
   if (first.ok) return { res: first.ok, apiKey: lastKey }
 
-  // Semua key kena 429/5xx: tunggu reset (hormati Retry-After, maks 45 dtk)
-  // lalu coba sekali lagi seluruh key sebelum menyerah.
-  const failedRes = first.failed as Response
-  const retryAfter = Number(failedRes.headers.get('retry-after') || 0)
-  const wait = Math.min(retryAfter || 20_000, 45_000)
-  if (wait > 0) await sleep(wait)
-  const second = await tryKeys()
-  if (second.ok) return { res: second.ok, apiKey: lastKey }
+  // Semua key kena 429/5xx: tunggu reset (hormati Retry-After) lalu coba
+  // lagi. Diulang beberapa kali karena bucket TPM org (6000/menit) bisa
+  // baru terisi sebagian — tunggu sebentar lagi biasanya cukup.
+  let failedRes = first.failed as Response
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const retryAfter = Number(failedRes.headers.get('retry-after') || 0)
+    const wait = Math.min(retryAfter || 20_000, 40_000)
+    if (wait > 0) await sleep(wait)
+    const next = await tryKeys()
+    if (next.ok) return { res: next.ok, apiKey: lastKey }
+    failedRes = next.failed as Response
+  }
 
   return { res: failedRes, apiKey: lastKey }
 }
@@ -201,7 +205,7 @@ export async function callGroqWithTools(
 
   const temperature = options.temperature ?? 0.7
   const maxTokens = options.maxTokens ?? spec.maxTokens
-  const timeoutMs = options.timeoutMs ?? 120_000
+  const timeoutMs = options.timeoutMs ?? 150_000
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
