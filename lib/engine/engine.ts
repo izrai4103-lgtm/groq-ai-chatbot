@@ -18,6 +18,24 @@ const jailbreakScanner = new JailbreakScanner()
 
 const MAX_TOOL_ROUNDS = 6
 
+/** Rapikan output model: runtuhkan whitespace patologis (em-space dll). */
+function normalizeOutput(s: string): string {
+  if (!s) return ''
+  const out = s
+    .replace(/[\u00a0\u2000-\u200b\u3000\t]+/g, ' ')
+    .replace(/ +/g, ' ')
+    .replace(/\n +/g, '\n')
+    .trim()
+  return out
+}
+
+/** Anggap jawaban gagal jika didominasi whitespace (model "nyangkut"). */
+function isPathological(s: string, normalized: string): boolean {
+  if (!s) return true
+  const ratio = 1 - normalized.length / s.length
+  return ratio > 0.6 && normalized.length < 120
+}
+
 // Request yang jelas minta tool (portofolio/PDF/analisis website) langsung
 // diberi ruang output lebih besar, karena argumen tool (JSON) butuh >160 token
 // dan panggilan 160 token untuk kasus ini pasti gagal (tool_use_failed).
@@ -235,6 +253,9 @@ export async function runChat(
 
     // Model kadang diam (konten kosong tanpa tool call) — coba sekali lagi
     // dengan instruksi tegas sebelum menyerah.
+    const rawFinal = finalContent
+    const normFinal = normalizeOutput(rawFinal)
+    finalContent = isPathological(rawFinal, normFinal) ? '' : normFinal
     if (!finalContent.trim()) {
       try {
         const fb = await callGroqWithTools(
@@ -244,7 +265,10 @@ export async function runChat(
           [] as GroqToolDefinition[],
           { maxTokens: 2048, temperature: 0.3 },
         )
-        if (fb.content && fb.content.trim()) finalContent = fb.content
+        if (fb.content && fb.content.trim()) {
+          const normFb = normalizeOutput(fb.content)
+          finalContent = isPathological(fb.content, normFb) ? '' : normFb
+        }
       } catch { /* abaikan — error asli tetap dilaporkan */ }
       if (!finalContent.trim()) {
         return err('AI_EMPTY_RESPONSE', 'Model AI mengembalikan respon kosong, coba lagi sebentar')
