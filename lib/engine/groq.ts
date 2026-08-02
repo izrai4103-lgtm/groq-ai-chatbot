@@ -7,11 +7,11 @@ import { recordRateLimit, recordUsage } from '../token-usage'
  * jadi kuota TPM per fitur tidak saling berebut dan 429 jauh lebih jarang.
  */
 export const MODELS: Record<ModelKind, ModelSpec> = {
-  chat: { feature: 'chat', model: process.env.CHAT_MODEL || 'openai/gpt-oss-120b', maxTokens: 160, name: 'Chat' },
-  thinking: { feature: 'thinking', model: 'openai/gpt-oss-120b', maxTokens: 160, name: 'Thinking' },
-  research: { feature: 'research', model: 'openai/gpt-oss-120b', maxTokens: 160, name: 'Research' },
-  creative: { feature: 'creative', model: 'openai/gpt-oss-120b', maxTokens: 160, name: 'Creative' },
-  upload: { feature: 'upload', model: process.env.UPLOAD_MODEL || 'openai/gpt-oss-120b', maxTokens: 160, name: 'Upload' },
+  chat: { feature: 'chat', model: process.env.CHAT_MODEL || 'openai/gpt-oss-120b', maxTokens: 2048, name: 'Chat' },
+  thinking: { feature: 'thinking', model: 'openai/gpt-oss-120b', maxTokens: 2048, name: 'Thinking' },
+  research: { feature: 'research', model: 'openai/gpt-oss-120b', maxTokens: 2048, name: 'Research' },
+  creative: { feature: 'creative', model: 'openai/gpt-oss-120b', maxTokens: 2048, name: 'Creative' },
+  upload: { feature: 'upload', model: process.env.UPLOAD_MODEL || 'openai/gpt-oss-120b', maxTokens: 2048, name: 'Upload' },
 }
 
 export class EngineError extends Error {
@@ -262,7 +262,7 @@ export async function callGroqWithTools(
       // Retry sekali saat model gagal menghasilkan argumen tool yang valid.
       const isToolFail = res.status === 400 && detail.includes('tool_use_failed')
       if (isToolFail) {
-        const retry = await doFetch(0.2, Math.max(maxTokens, 800))
+        const retry = await doFetch(0.2, Math.max(maxTokens, 2048))
         if (retry.res.ok) {
           const data2 = await retry.res.json() as Parameters<typeof mapResult>[0]
           recordUsage(spec.model, kind, data2.usage?.total_tokens, data2.usage?.completion_tokens)
@@ -298,8 +298,8 @@ export async function callGroqWithTools(
       result.toolCalls.some(tc => {
         try { JSON.parse(tc.arguments); return false } catch { return true }
       })
-    if (truncated && maxTokens < 800) {
-      const retry = await doFetch(0.2, 800)
+    if (truncated && maxTokens < 2048) {
+      const retry = await doFetch(0.2, 2048)
       if (retry.res.ok) {
         const data2 = await retry.res.json() as Parameters<typeof mapResult>[0]
         recordUsage(spec.model, kind, data2.usage?.total_tokens, data2.usage?.completion_tokens)

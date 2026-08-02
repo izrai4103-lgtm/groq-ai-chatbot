@@ -184,7 +184,7 @@ export async function runChat(
         systemPrompt,
         chatMessages,
         AI_TOOLS as GroqToolDefinition[],
-        toolIntent ? { maxTokens: 800 } : undefined,
+        toolIntent ? { maxTokens: 2048 } : undefined,
       )
 
       if (modelResult.toolCalls.length === 0) {
@@ -242,7 +242,7 @@ export async function runChat(
           systemPrompt,
           [...chatMessages, { role: 'user', content: 'Jawab langsung dengan satu atau dua kalimat tanpa memanggil tool.' }] as GroqToolMessage[],
           AI_TOOLS as GroqToolDefinition[],
-          { maxTokens: 400, temperature: 0.3 },
+          { maxTokens: 2048, temperature: 0.3 },
         )
         if (fb.content && fb.content.trim()) finalContent = fb.content
       } catch { /* abaikan — error asli tetap dilaporkan */ }

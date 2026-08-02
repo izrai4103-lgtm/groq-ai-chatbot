@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       request.headers.get('x-real-ip') ??
       'anonymous'
 
-    // Identitas user: login (guestId) = kuota 1.6k, belum login (per-IP) = 1k
+    // Identitas user: login (guestId) = kuota 20k, belum login (per-IP) = 10k
     const guestId = typeof body?.guestId === 'string' ? body.guestId.trim().slice(0, 64) : ''
     const isLoggedIn = guestId !== ''
     const userKey = isLoggedIn ? guestId : `ip:${ip}`
