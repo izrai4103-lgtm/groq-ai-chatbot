@@ -11,8 +11,8 @@ export interface ChatMessage {
 export type ModelKind = 'chat' | 'thinking' | 'research' | 'creative' | 'upload'
 
 export interface ModelSpec {
-  /** Nama env var yang menyimpan API key */
-  key: string
+  /** Nama fitur pemakai key (chat/thinking/research/creative/upload) */
+  feature: string
   model: string
   maxTokens: number
   name: string

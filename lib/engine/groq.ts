@@ -1,16 +1,17 @@
 import type { ChatMessage, ModelKind, ModelSpec } from './types'
-import { getGroqKeys, nextKeyIndex } from '../groq-keys'
+import { getFeatureKeys, nextKeyIndex } from '../provider-keys'
 import { recordRateLimit, recordUsage } from '../token-usage'
 
-/* ===== Klien Groq (TypeScript) — panggilan model AI dengan timeout ===== */
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
-
+/* ===== Klien model AI (Groq + Gemini via endpoint OpenAI-compatible) =====
+ * Setiap fitur memakai 2 API key khusus miliknya (lihat lib/provider-keys.js),
+ * jadi kuota TPM per fitur tidak saling berebut dan 429 jauh lebih jarang.
+ */
 export const MODELS: Record<ModelKind, ModelSpec> = {
-  chat: { key: 'GROQ_API_KEY', model: process.env.CHAT_MODEL || 'llama-3.1-8b-instant', maxTokens: 160, name: 'Chat' },
-  thinking: { key: 'GROQ_API_KEY_2', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Thinking' },
-  research: { key: 'GROQ_API_KEY_3', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Research' },
-  creative: { key: 'GROQ_API_KEY_4', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Creative' },
-  upload: { key: 'GROQ_API_KEY', model: process.env.UPLOAD_MODEL || 'llama-3.1-8b-instant', maxTokens: 160, name: 'Upload' },
+  chat: { feature: 'chat', model: process.env.CHAT_MODEL || 'llama-3.1-8b-instant', maxTokens: 160, name: 'Chat' },
+  thinking: { feature: 'thinking', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Thinking' },
+  research: { feature: 'research', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Research' },
+  creative: { feature: 'creative', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Creative' },
+  upload: { feature: 'upload', model: process.env.UPLOAD_MODEL || 'llama-3.1-8b-instant', maxTokens: 160, name: 'Upload' },
 }
 
 export class EngineError extends Error {
@@ -42,37 +43,38 @@ interface GroqFetchResult {
 }
 
 /**
- * POST ke Groq dengan failover antar key:
+ * POST ke provider model (Groq/Gemini) dengan failover antar key fitur:
+ * - Hanya key milik fitur tersebut yang dipakai (2 key, tidak berebut fitur lain).
  * - Mulai dari key yang bergiliran (round-robin) supaya beban tersebar.
  * - Saat kena 429/5xx, coba key berikutnya; setelah semua key habis,
  *   tunggu sebentar (hormati Retry-After) lalu coba sekali lagi.
  */
 async function fetchGroq(
-  body: unknown,
+  body: Record<string, unknown>,
   timeoutMs: number,
   signal: AbortSignal,
+  feature: string,
 ): Promise<GroqFetchResult> {
-  const keys = getGroqKeys()
+  const keys = getFeatureKeys(feature)
   if (keys.length === 0) {
-    throw new EngineError('AI_MODEL_UNAVAILABLE', 'Tidak ada kunci API Groq tersedia')
+    throw new EngineError('AI_MODEL_UNAVAILABLE', 'Tidak ada kunci API untuk fitur ini')
   }
 
-  // Mulai dari key yang bergiliran (round-robin + offset menit) supaya
-  // beban tersebar, bukan selalu menghantam key pertama.
+  // Mulai dari key yang bergiliran (round-robin + offset menit).
   const minuteOffset = Math.floor(Date.now() / 60_000) % keys.length
   const startIdx = (nextKeyIndex(keys.length) + minuteOffset) % keys.length
 
-  let lastKey = keys[startIdx]
+  let lastKey = keys[startIdx].key
 
   const tryKeys = async (): Promise<{ ok: Response | null; failed: Response | null }> => {
     let failed: Response | null = null
     for (let i = 0; i < keys.length; i++) {
-      const apiKey = keys[(startIdx + i) % keys.length]
-      lastKey = apiKey
-      const res = await fetch(GROQ_URL, {
+      const entry = keys[(startIdx + i) % keys.length]
+      lastKey = entry.key
+      const res = await fetch(entry.url, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        headers: { 'Authorization': `Bearer ${entry.key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...body, model: entry.model }),
         signal,
       })
       if (!RETRYABLE_STATUS.has(res.status)) return { ok: res, failed }
@@ -87,8 +89,7 @@ async function fetchGroq(
   if (first.ok) return { res: first.ok, apiKey: lastKey }
 
   // Semua key kena 429/5xx: tunggu reset (hormati Retry-After) lalu coba
-  // lagi. Diulang beberapa kali karena bucket TPM org (6000/menit) bisa
-  // baru terisi sebagian — tunggu sebentar lagi biasanya cukup.
+  // lagi. Diulang beberapa kali karena bucket TPM bisa baru terisi sebagian.
   let failedRes = first.failed as Response
   for (let attempt = 0; attempt < 3; attempt++) {
     const retryAfter = Number(failedRes.headers.get('retry-after') || 0)
@@ -121,18 +122,18 @@ export async function callGroq(
   try {
     const { res } = await fetchGroq(
       {
-        model: spec.model,
         messages: [{ role: 'system', content: systemPrompt }, ...messages],
         temperature,
         max_tokens: maxTokens,
       },
       timeoutMs,
       controller.signal,
+      spec.feature,
     )
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
-      const hint = res.status === 429 ? ' — kuota Groq penuh, coba lagi sebentar' : ''
+      const hint = res.status === 429 ? ' — kuota model penuh, coba lagi sebentar' : ''
       throw new EngineError('AI_MODEL_ERROR', `Model AI error (${res.status})${hint}`, {
         status: res.status,
         detail,
@@ -164,9 +165,8 @@ export async function callGroq(
   }
 }
 
-
 /* ============================================================
- * TOOL CALLING (function calling ala OpenAI/Groq)
+ * TOOL CALLING (function calling ala OpenAI — Groq & Gemini)
  * Dipakai untuk tool AI tambahan (analyze_website, generate_portfolio_pdf).
  * ============================================================ */
 
@@ -217,136 +217,99 @@ export async function callGroqWithTools(
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
-  try {
-    const { res, apiKey } = await fetchGroq(
+  const doFetch = async (temp: number, tokens: number) =>
+    fetchGroq(
       {
-        model: spec.model,
         messages: [{ role: 'system', content: systemPrompt }, ...messages],
-        temperature,
-        max_tokens: maxTokens,
+        temperature: temp,
+        max_tokens: tokens,
         tools,
         tool_choice: 'auto',
       },
       timeoutMs,
       controller.signal,
+      spec.feature,
     )
+
+  const mapResult = (
+    data: {
+      choices?: Array<{
+        message?: {
+          content?: string | null
+          tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: string } }>
+        }
+        finish_reason?: string
+      }>
+      usage?: { total_tokens?: number; completion_tokens?: number }
+    },
+  ): GroqToolCallResult => {
+    const message = data.choices?.[0]?.message
+    return {
+      content: message?.content ?? '',
+      toolCalls: (message?.tool_calls || []).map(tc => ({
+        id: tc.id || '',
+        name: tc.function?.name || '',
+        arguments: tc.function?.arguments || '{}',
+      })),
+    }
+  }
+
+  try {
+    let res = (await doFetch(temperature, maxTokens)).res
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
       // Retry sekali saat model gagal menghasilkan argumen tool yang valid.
       const isToolFail = res.status === 400 && detail.includes('tool_use_failed')
       if (isToolFail) {
-        const retry = await fetchGroq(
-          {
-            model: spec.model,
-            messages: [{ role: 'system', content: systemPrompt }, ...messages],
-            temperature: 0.2,
-            max_tokens: Math.max(maxTokens, 800),
-            tools,
-            tool_choice: 'auto',
-          },
-          timeoutMs,
-          controller.signal,
-        )
+        const retry = await doFetch(0.2, Math.max(maxTokens, 800))
         if (retry.res.ok) {
-          const data2 = await retry.res.json() as {
-            choices?: Array<{ message?: { content?: string | null; tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: string } }> } }>
-            usage?: { total_tokens?: number; completion_tokens?: number }
-          }
-          const m2 = data2.choices?.[0]?.message
+          const data2 = await retry.res.json() as Parameters<typeof mapResult>[0]
           recordUsage(spec.model, kind, data2.usage?.total_tokens, data2.usage?.completion_tokens)
-          return {
-            content: m2?.content ?? '',
-            toolCalls: (m2?.tool_calls || []).map(tc => ({
-              id: tc.id || '',
-              name: tc.function?.name || '',
-              arguments: tc.function?.arguments || '{}',
-            })),
-          }
+          return mapResult(data2)
         }
         const retryDetail = await retry.res.text().catch(() => '')
-        console.error('[groq] retry tool_use_failed gagal:', retry.res.status, retryDetail.slice(0, 400))
-        const hint2 = retry.res.status === 429 ? ' — kuota Groq penuh, coba lagi sebentar' : ''
+        console.error('[model] retry tool_use_failed gagal:', retry.res.status, retryDetail.slice(0, 400))
+        const hint2 = retry.res.status === 429 ? ' — kuota model penuh, coba lagi sebentar' : ''
         throw new EngineError('AI_MODEL_ERROR', `Model AI error (${retry.res.status})${hint2}`, {
           status: retry.res.status,
           detail: retryDetail.slice(0, 500),
         })
       }
-      console.error('[groq] panggilan gagal:', res.status, detail.slice(0, 400))
-      const hint = res.status === 429 ? ' — kuota Groq penuh, coba lagi sebentar' : ''
+      console.error('[model] panggilan gagal:', res.status, detail.slice(0, 400))
+      const hint = res.status === 429 ? ' — kuota model penuh, coba lagi sebentar' : ''
       throw new EngineError('AI_MODEL_ERROR', `Model AI error (${res.status})${hint}`, {
         status: res.status,
         detail: detail.slice(0, 500),
       })
     }
 
-    const data = await res.json() as {
-      choices?: Array<{
-        message?: {
-          content?: string | null
-          tool_calls?: Array<{
-            id?: string
-            function?: { name?: string; arguments?: string }
-          }>
-        }
-        finish_reason?: string
-      }>
-      usage?: { total_tokens?: number; completion_tokens?: number }
-    }
-
-    const message = data.choices?.[0]?.message
-    const content = message?.content ?? ''
+    const data = await res.json() as Parameters<typeof mapResult>[0]
     recordUsage(spec.model, kind, data.usage?.total_tokens, data.usage?.completion_tokens)
-    const toolCalls: GroqToolCall[] = (message?.tool_calls || []).map(tc => ({
-      id: tc.id || '',
-      name: tc.function?.name || '',
-      arguments: tc.function?.arguments || '{}',
-    }))
+    const result = mapResult(data)
 
     // max_tokens kecil (160) bisa memotong argumen tool. Kalau terpotong /
-    // JSON-nya tidak valid, ulangi sekali dengan ruang lebih besar.
+    // JSON-nya tidak valid / respon kosong, ulangi sekali dengan ruang lebih besar.
     const finishReason = data.choices?.[0]?.finish_reason
-    const hasText = (content || '').trim().length > 0
-    const truncated = finishReason === 'length' || (!hasText && toolCalls.length === 0) || toolCalls.some(tc => {
-      try { JSON.parse(tc.arguments); return false } catch { return true }
-    })
+    const hasText = result.content.trim().length > 0
+    const truncated =
+      finishReason === 'length' ||
+      (!hasText && result.toolCalls.length === 0) ||
+      result.toolCalls.some(tc => {
+        try { JSON.parse(tc.arguments); return false } catch { return true }
+      })
     if (truncated && maxTokens < 800) {
-      const retry = await fetchGroq(
-        {
-          model: spec.model,
-          messages: [{ role: 'system', content: systemPrompt }, ...messages],
-          temperature: 0.2,
-          max_tokens: 800,
-          tools,
-          tool_choice: 'auto',
-        },
-        timeoutMs,
-        controller.signal,
-      )
+      const retry = await doFetch(0.2, 800)
       if (retry.res.ok) {
-        const data2 = await retry.res.json() as {
-          choices?: Array<{
-            message?: { content?: string | null; tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: string } }> }
-            finish_reason?: string
-          }>
-          usage?: { total_tokens?: number; completion_tokens?: number }
-        }
-        const m2 = data2.choices?.[0]?.message
+        const data2 = await retry.res.json() as Parameters<typeof mapResult>[0]
         recordUsage(spec.model, kind, data2.usage?.total_tokens, data2.usage?.completion_tokens)
-        return {
-          content: m2?.content ?? '',
-          toolCalls: (m2?.tool_calls || []).map(tc => ({
-            id: tc.id || '',
-            name: tc.function?.name || '',
-            arguments: tc.function?.arguments || '{}',
-          })),
-        }
+        return mapResult(data2)
       }
       const escDetail = await retry.res.text().catch(() => '')
-      console.error('[groq] escalation retry gagal:', retry.res.status, escDetail.slice(0, 400))
+      console.error('[model] escalation retry gagal:', retry.res.status, escDetail.slice(0, 400))
     }
 
-    return { content, toolCalls }
+    return result
   } catch (err) {
     if (err instanceof EngineError) throw err
     if (err instanceof Error && err.name === 'AbortError') {

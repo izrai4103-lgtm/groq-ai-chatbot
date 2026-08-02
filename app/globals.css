@@ -121,6 +121,11 @@ textarea{font-family:var(--font)}
 .topbar-btn svg{width:18px;height:18px}
 
 .model-picker{position:relative}
+.model-btn-static{
+  display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:8px;
+  background:transparent;color:var(--text);font-size:13px;font-weight:500;cursor:default
+}
+.model-btn-static svg{width:16px;height:16px;color:var(--text-sec)}
 .model-btn{
   display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:8px;
   border:none;background:transparent;color:var(--text);font-size:13px;font-weight:500;transition:.15s
@@ -150,11 +155,11 @@ textarea{font-family:var(--font)}
 .model-opt.selected .m-check{opacity:1}
 .m-name-row{display:flex;align-items:center;gap:6px;min-width:0}
 .m-tokens{
-  display:flex;flex-direction:column;align-items:center;gap:2px;padding:3px 7px;border-radius:9px;white-space:nowrap;
+  display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 9px;border-radius:10px;white-space:nowrap;
   background:rgba(255,255,255,.09);color:var(--green);font-variant-numeric:tabular-nums;line-height:1
 }
-.m-tokens .m-tokens-n{font-size:11px;font-weight:700}
-.m-tokens .m-tokens-r{font-size:8px;font-weight:600;opacity:.75}
+.m-tokens .m-tokens-n{font-size:12px;font-weight:700}
+.m-tokens .m-tokens-r{font-size:9px;font-weight:600;opacity:.8}
 .m-tokens.mid{color:#f5c451;background:rgba(245,196,81,.14)}
 .m-tokens.low{color:#ff6b6b;background:rgba(255,107,107,.18)}
 

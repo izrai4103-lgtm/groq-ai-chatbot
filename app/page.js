@@ -7,12 +7,6 @@ import { loadProfile, saveProfile, DEFAULT_PROFILE } from '../lib/profile'
 import { loadSession, saveSession, clearSession } from '../lib/auth-sandbox'
 
 /* ===== CONSTANTS ===== */
-const MODELS = [
-  { id: 'chat', icon: '💬', name: 'Zanco-Ai', desc: 'Respons cepat & ramah' },
-  { id: 'thinking', icon: '🧠', name: 'Thinking', desc: 'Analisa mendalam & logis' },
-  { id: 'research', icon: '🔍', name: 'Web Research', desc: 'Cari informasi faktual' },
-  { id: 'conference', icon: '🗣️', name: 'Multi-AI', desc: '4 model saling diskusi' },
-]
 const STORAGE_KEY = 'groq_chats_v1'
 const ANIM_KEY = 'groq_anim_v1'
 
@@ -41,8 +35,11 @@ function TokenBadge({ usage, now }) {
   const { remaining, quota, resetAt } = user
   const resetIn = resetAt ? Math.max(0, Math.ceil((resetAt - now) / 1000)) : null
   return (
-    <span className={`m-tokens ${tokenLevel(remaining, quota)}`} title={`Sisa token: ${remaining.toLocaleString('id-ID')} dari ${quota.toLocaleString('id-ID')} per hari`}>
-      <span className="m-tokens-n">{formatTokens(remaining)}</span>
+    <span
+      className={`m-tokens ${tokenLevel(remaining, quota)}`}
+      title={`Sisa token: ${remaining.toLocaleString('id-ID')} dari ${quota.toLocaleString('id-ID')} per hari. Reset otomatis tengah malam (UTC).`}
+    >
+      <span className="m-tokens-n">Sisa {formatTokens(remaining)}</span>
       {resetIn != null && <span className="m-tokens-r">reset {formatReset(resetIn)}</span>}
     </span>
   )
@@ -264,22 +261,15 @@ function ChatMessage({
   )
 }
 
-/* ===== TYPING (loader kontekstual per model) ===== */
-const TYPING_LABELS = {
-  chat: 'Mengetik…',
-  thinking: 'Menganalisa…',
-  research: 'Mencari di web…',
-  conference: 'Menyusun diskusi…',
-}
-
-function TypingIndicator({ model = 'chat' }) {
-  const label = TYPING_LABELS[model] || 'Mengetik…'
+/* ===== TYPING (loader) ===== */
+function TypingIndicator() {
+  const label = 'Mengetik…'
   return (
     <div className="msg assistant">
       <div className="msg-row">
         <div className="msg-av"><div className="av assistant"><img src="/ai-avatar.png" alt="AI" className="av-img" /></div></div>
         <div className="msg-c">
-          <div className={`typing ${model}`}>
+          <div className="typing chat">
             <span className="typ-dot"><span></span><span></span><span></span></span>
             <span className="typ-label">{label}</span>
           </div>
@@ -312,8 +302,6 @@ export default function Home() {
   const [showScroll, setShowScroll] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showArchive, setShowArchive] = useState(false)
-  const [model, setModel] = useState('chat')
-  const [menuOpen, setMenuOpen] = useState(false)
   const [webSearch, setWebSearch] = useState(false)
   const [file, setFile] = useState(null)
   const [ratings, setRatings] = useState({})
@@ -331,7 +319,6 @@ export default function Home() {
   const chatRef = useRef(null)
   const taRef = useRef(null)
   const fileRef = useRef(null)
-  const menuRef = useRef(null)
   const abortRef = useRef(null)
   const toastTimer = useRef(null)
   const copiedTimer = useRef(null)
@@ -429,20 +416,13 @@ export default function Home() {
     setShowScroll(scrollHeight - scrollTop - clientHeight > 300)
   }, [])
 
-  /* ===== CLOSE MENU ===== */
+  /* ===== ESCAPE: tutup sidebar ===== */
   useEffect(() => {
-    const onDown = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
-    }
     const onKey = (e) => {
-      if (e.key === 'Escape') { setMenuOpen(false); setSidebarOpen(false) }
+      if (e.key === 'Escape') setSidebarOpen(false)
     }
-    document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
+    return () => document.removeEventListener('keydown', onKey)
   }, [])
 
   /* ===== SEND ===== */
@@ -450,7 +430,7 @@ export default function Home() {
     if ((!text && !attach) || loading) return
     setLoading(true)
     setError('')
-    logUX('send', { model })
+    logUX('send')
 
     // Jeda alami seperti manusia mengetik (0.3–0.9 dtk, hanya saat animasi aktif)
     if (animPref === 'on') {
@@ -460,8 +440,7 @@ export default function Home() {
     const controller = new AbortController()
     abortRef.current = controller
 
-    const isConference = model === 'conference'
-    const useResearch = webSearch && !isConference && model !== 'thinking'
+    const useResearch = webSearch
 
     let endpoint = '/api/chat'
     let body = { messages: messageList.map(m => ({ role: m.role, content: m.content })), guestId: session?.guestId || '' }
@@ -475,12 +454,9 @@ export default function Home() {
       form.append('file', attach.file)
       form.append('history', JSON.stringify(messageList.map(m => ({ role: m.role, content: m.content }))))
       form.append('guestId', session?.guestId || '')
-    } else if (isConference) {
-      endpoint = '/api/conference'
-      body = { topic: text, rounds: 2, guestId: session?.guestId || '' }
-    } else if (model === 'thinking' || useResearch) {
+    } else if (useResearch) {
       endpoint = '/api/think'
-      body = { question: text, web: useResearch, guestId: session?.guestId || '' }
+      body = { question: text, web: true, guestId: session?.guestId || '' }
     }
 
     try {
@@ -500,16 +476,12 @@ export default function Home() {
       if (endpoint === '/api/chat' || endpoint === '/api/upload') {
         content = data.content
       } else if (endpoint === '/api/think') {
-        content = model === 'thinking'
-          ? (data.thinking || data.answer || '')
-          : (data.research || data.answer || '')
-      } else if (endpoint === '/api/conference') {
-        content = formatConference(data)
+        content = (data.research || data.answer || data.thinking || '')
       }
 
       if (!content) throw new Error(data.error || 'Respon kosong')
 
-      logUX('delivered', { model })
+      logUX('delivered')
       setMessages(prev => [
         ...prev.map(m => m.role === 'user' ? { ...m, status: 'read' } : m),
         { id: nextId(), role: 'assistant', content, streaming: true },
@@ -523,7 +495,7 @@ export default function Home() {
       abortRef.current = null
       pollTokenUsage()
     }
-  }, [loading, model, webSearch, animPref, pollTokenUsage])
+  }, [loading, webSearch, animPref, pollTokenUsage])
 
   const handleSubmit = useCallback((e) => {
     e?.preventDefault()
@@ -678,18 +650,6 @@ export default function Home() {
     showToast('Chat dihapus')
   }, [activeId, showToast])
 
-  /* ===== MODEL ===== */
-  const switchModel = useCallback((id) => {
-    setModel(id)
-    setMenuOpen(false)
-    if (loading) {
-      abortRef.current?.abort()
-      setLoading(false)
-      setError('')
-    }
-    taRef.current?.focus()
-  }, [loading])
-
   /* ===== FILE / SHARE ===== */
   const handleFile = useCallback(async (e) => {
     const f = e.target.files?.[0]
@@ -724,13 +684,7 @@ export default function Home() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() }
   }, [handleSubmit])
 
-  const placeholder = model === 'conference'
-    ? 'Masukkan topik diskusi 4 AI...'
-    : model === 'research'
-      ? 'Tanyakan apa pun, saya cari di web...'
-      : model === 'thinking'
-        ? 'Masukkan pertanyaan untuk dianalisa...'
-        : 'Ketik pesan...'
+  const placeholder = webSearch ? 'Tanyakan apa pun, saya cari di web...' : 'Ketik pesan...'
 
   const activeChats = [...chats].filter(c => !c.archived).sort((a, b) => b.updatedAt - a.updatedAt)
   const archivedChats = [...chats].filter(c => c.archived).sort((a, b) => b.updatedAt - a.updatedAt)
@@ -844,27 +798,11 @@ export default function Home() {
             </button>
           </div>
 
-          <div className={`model-picker ${menuOpen ? 'open' : ''}`} ref={menuRef}>
-            <button className="model-btn" onClick={() => setMenuOpen(o => !o)} aria-haspopup="listbox" aria-expanded={menuOpen}>
+          <div className="model-picker static">
+            <div className="model-btn-static">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z" /><path d="M12 6v6l4 2" /></svg>
-              <span className="m-name">{MODELS.find(m => m.id === model)?.name}</span>
+              <span className="m-name">Zanco-Ai</span>
               <TokenBadge usage={tokenUsage} now={now} />
-              <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 9l6 6 6-6" /></svg>
-            </button>
-            <div className="model-menu" role="listbox">
-              {MODELS.map(m => (
-                <button key={m.id} role="option" aria-selected={model === m.id} className={`model-opt ${model === m.id ? 'selected' : ''}`} onClick={() => switchModel(m.id)}>
-                  <div className="m-ic">{m.icon}</div>
-                  <div className="m-info">
-                    <div className="m-name-row">
-                      <div className="m-name">{m.name}</div>
-                      <TokenBadge usage={tokenUsage} now={now} />
-                    </div>
-                    <div className="m-desc">{m.desc}</div>
-                  </div>
-                  <svg className="m-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6L9 17l-5-5" /></svg>
-                </button>
-              ))}
             </div>
           </div>
 
@@ -897,7 +835,7 @@ export default function Home() {
                 onStreamTick={() => autoScroll(false)}
               />
             ))}
-            {loading && <TypingIndicator model={model} />}
+            {loading && <TypingIndicator />}
             {error && (
               <div className="err">
                 <span>⚠️</span> {error}
@@ -1023,21 +961,4 @@ export default function Home() {
       </main>
     </div>
   )
-}
-
-/* ===== FORMAT CONFERENCE ===== */
-function formatConference(data) {
-  if (!data) return ''
-  let out = ''
-  if (data.modelsUsed?.length) {
-    out += `**Model yang berdiskusi:** ${data.modelsUsed.join(', ')}\n\n`
-  }
-  for (const round of data.rounds || []) {
-    out += `\n### Round ${round.round}\n\n`
-    for (const r of round.responses || []) {
-      out += `**${r.model}:**\n${r.content}\n\n`
-    }
-  }
-  if (data.conclusion) out += `### Kesimpulan\n\n${data.conclusion}`
-  return out
 }

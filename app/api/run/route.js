@@ -10,17 +10,21 @@ export async function POST(request) {
       return Response.json({ error: 'Kode terlalu panjang' }, { status: 400 })
     }
 
-    const apiKey = process.env.GROQ_API_KEY_3
+    const { getFeatureKeys } = await import('../../lib/provider-keys.js')
+    const researchKeys = getFeatureKeys('research')
+    const apiKey = researchKeys[0]?.key
     if (!apiKey) {
       return Response.json({ success: false, error: 'API Key tidak tersedia' })
     }
+    const model = researchKeys[0]?.model || 'llama-3.1-8b-instant'
+    const url = researchKeys[0]?.url || 'https://api.groq.com/openai/v1/chat/completions'
 
     const lang = (language || 'javascript').toLowerCase()
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model,
         messages: [
           { role: 'system', content: `Kamu adalah Code Executor. Simulasikan eksekusi kode ${lang} ini dan berikan OUTPUT yang akurat. Jawab HANYA dengan JSON: {"output": "hasil", "error": null} atau {"output": "", "error": "pesan error"}` },
           { role: 'user', content: `Jalankan kode ini:\n\`\`\`${lang}\n${code}\n\`\`\`` }

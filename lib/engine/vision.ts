@@ -18,6 +18,7 @@ import { statSync } from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
 import { EngineError } from './groq'
+import { getFeatureKeys } from '../provider-keys'
 
 /* ===== Konstanta ===== */
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
@@ -56,7 +57,11 @@ interface PillowInfo {
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 function getGroqKey(): string {
-  const key = process.env.GROQ_API_KEY || process.env.GROQ_VISION_KEY || ''
+  // Fitur upload punya 2 key (Groq utama + Gemini cadangan). Vision/Whisper
+  // butuh Groq (model qwen + whisper), jadi ambil key Groq dari fitur upload.
+  const uploadKeys = getFeatureKeys('upload')
+  const groq = uploadKeys.find((k) => k.provider === 'groq')
+  const key = groq?.key || process.env.GROQ_API_KEY || process.env.GROQ_VISION_KEY || ''
   if (!key) throw new EngineError('AI_MODEL_UNAVAILABLE', 'Kunci API vision tidak tersedia')
   return key
 }
