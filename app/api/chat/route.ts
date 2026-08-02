@@ -38,8 +38,15 @@ export async function POST(request: Request) {
 
     if (!result.success) {
       const status = result.error ? STATUS_MAP[result.error.code] || 500 : 500
+      const errorMeta = result.error?.meta as { detail?: unknown } | undefined
+      const detail =
+        typeof errorMeta?.detail === 'string'
+          ? errorMeta.detail.slice(0, 400)
+          : undefined
       return Response.json(
-        { error: result.error?.message || 'Unknown error' },
+        detail
+          ? { error: result.error?.message || 'Unknown error', detail }
+          : { error: result.error?.message || 'Unknown error' },
         { status, headers },
       )
     }
