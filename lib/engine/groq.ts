@@ -238,12 +238,19 @@ export async function callGroqWithTools(
             })),
           }
         }
+        const retryDetail = await retry.res.text().catch(() => '')
+        console.error('[groq] retry tool_use_failed gagal:', retry.res.status, retryDetail.slice(0, 400))
+        const hint2 = retry.res.status === 429 ? ' — kuota Groq penuh, coba lagi sebentar' : ''
+        throw new EngineError('AI_MODEL_ERROR', `Model AI error (${retry.res.status})${hint2}`, {
+          status: retry.res.status,
+          detail: retryDetail.slice(0, 500),
+        })
       }
-      const detail2 = await res.text().catch(() => '')
+      console.error('[groq] panggilan gagal:', res.status, detail.slice(0, 400))
       const hint = res.status === 429 ? ' — kuota Groq penuh, coba lagi sebentar' : ''
       throw new EngineError('AI_MODEL_ERROR', `Model AI error (${res.status})${hint}`, {
         status: res.status,
-        detail: detail2.slice(0, 500),
+        detail: detail.slice(0, 500),
       })
     }
 
@@ -304,6 +311,8 @@ export async function callGroqWithTools(
           })),
         }
       }
+      const escDetail = await retry.res.text().catch(() => '')
+      console.error('[groq] escalation retry gagal:', retry.res.status, escDetail.slice(0, 400))
     }
 
     return { content, toolCalls }
