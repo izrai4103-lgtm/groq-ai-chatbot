@@ -1,6 +1,6 @@
 import { runChat } from '@/lib/engine/engine'
 import type { EngineErrorCode } from '@/lib/engine/types'
-import { flushTokenUsage } from '@/lib/token-usage'
+import { deductUserTokens, flushTokenUsage, getTotalRecorded, getUserTokenStatus } from '@/lib/token-usage'
 
 export const maxDuration = 300
 
@@ -21,7 +21,7 @@ const STATUS_MAP: Record<EngineErrorCode, number> = {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json().catch(() => null)) as { messages?: unknown } | null
+    const body = (await request.json().catch(() => null)) as { messages?: unknown; guestId?: unknown } | null
 
     // Dapatkan IP client
     const ip =
@@ -29,9 +29,25 @@ export async function POST(request: Request) {
       request.headers.get('x-real-ip') ??
       'anonymous'
 
+    // Identitas user: login (guestId) = kuota 1.6k, belum login (per-IP) = 1k
+    const guestId = typeof body?.guestId === 'string' ? body.guestId.trim().slice(0, 64) : ''
+    const isLoggedIn = guestId !== ''
+    const userKey = isLoggedIn ? guestId : `ip:${ip}`
+
+    // Cek kuota sebelum memanggil model
+    const userStatus = await getUserTokenStatus(userKey, isLoggedIn)
+    if (userStatus.remaining <= 0) {
+      return Response.json(
+        { error: 'Kuota token kamu habis untuk hari ini. Reset tengah malam.' },
+        { status: 429 },
+      )
+    }
+
     // Jalankan di mesin utama (TypeScript engine)
+    const before = getTotalRecorded()
     const result = await runChat(body?.messages, ip)
     await flushTokenUsage()
+    await deductUserTokens(userKey, isLoggedIn, getTotalRecorded() - before)
 
     const headers: Record<string, string> = {
       'X-RateLimit-Remaining': String(result.meta.rateLimit?.remaining ?? ''),

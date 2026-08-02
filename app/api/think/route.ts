@@ -1,19 +1,30 @@
 import { runThinking } from '@/lib/engine/engine'
-import { flushTokenUsage } from '@/lib/token-usage'
+import { deductUserTokens, flushTokenUsage, getTotalRecorded, getUserTokenStatus } from '@/lib/token-usage'
 
 export const maxDuration = 60
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json().catch(() => null)) as { question?: unknown; web?: unknown } | null
+    const body = (await request.json().catch(() => null)) as { question?: unknown; web?: unknown; guestId?: unknown } | null
 
     const ip =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
       request.headers.get('x-real-ip') ??
       'anonymous'
 
+    const guestId = typeof body?.guestId === 'string' ? body.guestId.trim().slice(0, 64) : ''
+    const isLoggedIn = guestId !== ''
+    const userKey = isLoggedIn ? guestId : `ip:${ip}`
+
+    const userStatus = await getUserTokenStatus(userKey, isLoggedIn)
+    if (userStatus.remaining <= 0) {
+      return Response.json({ error: 'Kuota token kamu habis untuk hari ini. Reset tengah malam.' }, { status: 429 })
+    }
+
+    const before = getTotalRecorded()
     const result = await runThinking(body?.question, ip, Boolean(body?.web))
     await flushTokenUsage()
+    await deductUserTokens(userKey, isLoggedIn, getTotalRecorded() - before)
 
     if (result.blockCode) {
       const status = result.blockCode === 'USER_BANNED' ? 429 : 403

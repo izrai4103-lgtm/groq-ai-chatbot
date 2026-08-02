@@ -1,6 +1,6 @@
 import { runChat } from '@/lib/engine/engine'
 import { runVisionPipeline } from '@/lib/engine/vision'
-import { flushTokenUsage } from '@/lib/token-usage'
+import { deductUserTokens, flushTokenUsage, getTotalRecorded, getUserTokenStatus } from '@/lib/token-usage'
 import { JailbreakScanner, verdictToError } from '@/lib/jailbreak-scanner'
 import type { EngineErrorCode, ScanResult } from '@/lib/engine/types'
 
@@ -46,6 +46,7 @@ export async function POST(request: Request) {
     }
 
     const message = String(form.get('message') || '').trim()
+    const guestId = String(form.get('guestId') || '').trim().slice(0, 64)
     let history: unknown[] = []
     try {
       const parsed = JSON.parse(String(form.get('history') || '[]'))
@@ -69,8 +70,17 @@ export async function POST(request: Request) {
     const userText = message || 'Analisis lampiran ini'
     const messages = [...history, { role: 'user' as const, content: userText }]
 
+    const isLoggedIn = guestId !== ''
+    const userKey = isLoggedIn ? guestId : `ip:${ip}`
+    const userStatus = await getUserTokenStatus(userKey, isLoggedIn)
+    if (userStatus.remaining <= 0) {
+      return Response.json({ error: 'Kuota token kamu habis untuk hari ini. Reset tengah malam.' }, { status: 429 })
+    }
+
+    const before = getTotalRecorded()
     const result = await runChat(messages, ip, vision.context, { model: 'upload' })
     await flushTokenUsage()
+    await deductUserTokens(userKey, isLoggedIn, getTotalRecorded() - before)
     const headers: Record<string, string> = {
       'X-RateLimit-Remaining': String(result.meta.rateLimit?.remaining ?? ''),
       'X-RateLimit-Reset': String(result.meta.rateLimit?.resetAt ?? ''),

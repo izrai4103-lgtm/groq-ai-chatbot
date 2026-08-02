@@ -28,16 +28,20 @@ const tokenLevel = (remaining, limit) => {
 const formatReset = (s) => {
   if (s == null || !Number.isFinite(s)) return ''
   if (s <= 0) return '0s'
-  const m = Math.floor(s / 60)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
   const sec = s % 60
-  return m > 0 ? `${m}:${String(sec).padStart(2, '0')}` : `${sec}s`
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+  if (m > 0) return `${m}:${String(sec).padStart(2, '0')}`
+  return `${sec}s`
 }
 function TokenBadge({ usage, now }) {
-  if (!usage) return null
-  const { remaining, limit, resetAt } = usage
+  const user = usage?.user
+  if (!user) return null
+  const { remaining, quota, resetAt } = user
   const resetIn = resetAt ? Math.max(0, Math.ceil((resetAt - now) / 1000)) : null
   return (
-    <span className={`m-tokens ${tokenLevel(remaining, limit)}`} title={`Sisa token: ${remaining.toLocaleString('id-ID')} (kuota per menit)`}>
+    <span className={`m-tokens ${tokenLevel(remaining, quota)}`} title={`Sisa token: ${remaining.toLocaleString('id-ID')} dari ${quota.toLocaleString('id-ID')} per hari`}>
       <span className="m-tokens-n">{formatTokens(remaining)}</span>
       {resetIn != null && <span className="m-tokens-r">reset {formatReset(resetIn)}</span>}
     </span>
@@ -351,21 +355,22 @@ export default function Home() {
     return () => mq.removeEventListener?.('change', apply)
   }, [])
 
-  /* Sisa token Groq: angka real-time (polling tiap 6 detik) */
+  /* Sisa token user: angka real-time (polling tiap 6 detik + refresh setelah kirim) */
+  const pollTokenUsage = useCallback(async () => {
+    try {
+      const gid = session?.guestId || ''
+      const res = await fetch(`/api/token-usage?guestId=${encodeURIComponent(gid)}`, { cache: 'no-store' })
+      if (!res.ok) return
+      const data = await res.json()
+      setTokenUsage(data)
+    } catch (e) { /* server restart / offline */ }
+  }, [session])
+
   useEffect(() => {
-    let alive = true
-    const poll = async () => {
-      try {
-        const res = await fetch('/api/token-usage', { cache: 'no-store' })
-        if (!res.ok) return
-        const data = await res.json()
-        if (alive) setTokenUsage(data)
-      } catch (e) { /* server restart / offline */ }
-    }
-    poll()
-    const id = setInterval(poll, 6000)
-    return () => { alive = false; clearInterval(id) }
-  }, [])
+    pollTokenUsage()
+    const id = setInterval(pollTokenUsage, 6000)
+    return () => clearInterval(id)
+  }, [pollTokenUsage])
 
   /* Countdown reset token: tick tiap detik */
   useEffect(() => {
@@ -459,7 +464,7 @@ export default function Home() {
     const useResearch = webSearch && !isConference && model !== 'thinking'
 
     let endpoint = '/api/chat'
-    let body = { messages: messageList.map(m => ({ role: m.role, content: m.content })) }
+    let body = { messages: messageList.map(m => ({ role: m.role, content: m.content })), guestId: session?.guestId || '' }
     let form = null
 
     if (attach) {
@@ -469,12 +474,13 @@ export default function Home() {
       form.append('message', text)
       form.append('file', attach.file)
       form.append('history', JSON.stringify(messageList.map(m => ({ role: m.role, content: m.content }))))
+      form.append('guestId', session?.guestId || '')
     } else if (isConference) {
       endpoint = '/api/conference'
-      body = { topic: text, rounds: 2 }
+      body = { topic: text, rounds: 2, guestId: session?.guestId || '' }
     } else if (model === 'thinking' || useResearch) {
       endpoint = '/api/think'
-      body = { question: text, web: useResearch }
+      body = { question: text, web: useResearch, guestId: session?.guestId || '' }
     }
 
     try {
@@ -515,8 +521,9 @@ export default function Home() {
     } finally {
       setLoading(false)
       abortRef.current = null
+      pollTokenUsage()
     }
-  }, [loading, model, webSearch, animPref])
+  }, [loading, model, webSearch, animPref, pollTokenUsage])
 
   const handleSubmit = useCallback((e) => {
     e?.preventDefault()
