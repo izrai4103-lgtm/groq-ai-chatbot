@@ -1,5 +1,5 @@
 import type { ChatMessage, ModelKind, ModelSpec } from './types'
-import { getGroqKeys } from '../groq-keys'
+import { getGroqKeys, nextKeyIndex } from '../groq-keys'
 
 /* ===== Klien Groq (TypeScript) — panggilan model AI dengan timeout ===== */
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
@@ -50,37 +50,50 @@ async function fetchGroq(
   body: unknown,
   timeoutMs: number,
   signal: AbortSignal,
-  maxAttempts = 8,
 ): Promise<GroqFetchResult> {
   const keys = getGroqKeys()
   if (keys.length === 0) {
     throw new EngineError('AI_MODEL_UNAVAILABLE', 'Tidak ada kunci API Groq tersedia')
   }
 
-  let lastRes: Response | null = null
-  let lastKey = keys[0]
+  // Mulai dari key yang bergiliran (round-robin + offset menit) supaya
+  // beban tersebar, bukan selalu menghantam key pertama.
+  const minuteOffset = Math.floor(Date.now() / 60_000) % keys.length
+  const startIdx = (nextKeyIndex(keys.length) + minuteOffset) % keys.length
 
-  for (let i = 0; i < maxAttempts; i++) {
-    const apiKey = keys[i % keys.length]
-    lastKey = apiKey
-    const res = await fetch(GROQ_URL, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal,
-    })
-    lastRes = res
+  let lastKey = keys[startIdx]
 
-    if (!RETRYABLE_STATUS.has(res.status)) return { res, apiKey }
-
-    // Pass pertama: langsung pindah key (tiap key punya jatah TPM sendiri).
-    // Pass kedua (sudah semua key dicoba): tunggu sebentar sebelum ulang.
-    const secondPass = i >= keys.length
-    const retryAfter = Number(res.headers.get('retry-after') || 0)
-    await sleep(secondPass ? Math.min(retryAfter || 3000, 20_000) : 400)
+  const tryKeys = async (): Promise<{ ok: Response | null; failed: Response | null }> => {
+    let failed: Response | null = null
+    for (let i = 0; i < keys.length; i++) {
+      const apiKey = keys[(startIdx + i) % keys.length]
+      lastKey = apiKey
+      const res = await fetch(GROQ_URL, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal,
+      })
+      if (!RETRYABLE_STATUS.has(res.status)) return { ok: res, failed }
+      failed = res
+      await sleep(400)
+    }
+    return { ok: null, failed }
   }
 
-  return { res: lastRes as Response, apiKey: lastKey }
+  const first = await tryKeys()
+  if (first.ok) return { res: first.ok, apiKey: lastKey }
+
+  // Semua key kena 429/5xx: tunggu reset (hormati Retry-After, maks 45 dtk)
+  // lalu coba sekali lagi seluruh key sebelum menyerah.
+  const failedRes = first.failed as Response
+  const retryAfter = Number(failedRes.headers.get('retry-after') || 0)
+  const wait = Math.min(retryAfter || 20_000, 45_000)
+  if (wait > 0) await sleep(wait)
+  const second = await tryKeys()
+  if (second.ok) return { res: second.ok, apiKey: lastKey }
+
+  return { res: failedRes, apiKey: lastKey }
 }
 
 export async function callGroq(
@@ -188,7 +201,7 @@ export async function callGroqWithTools(
 
   const temperature = options.temperature ?? 0.7
   const maxTokens = options.maxTokens ?? spec.maxTokens
-  const timeoutMs = options.timeoutMs ?? 60_000
+  const timeoutMs = options.timeoutMs ?? 120_000
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)

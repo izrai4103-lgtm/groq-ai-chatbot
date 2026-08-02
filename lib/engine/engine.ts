@@ -17,6 +17,15 @@ const jailbreakScanner = new JailbreakScanner()
 
 const MAX_TOOL_ROUNDS = 3
 
+// Request yang jelas minta tool (portofolio/PDF/analisis website) langsung
+// diberi ruang output lebih besar, karena argumen tool (JSON) butuh >160 token
+// dan panggilan 160 token untuk kasus ini pasti gagal (tool_use_failed).
+const TOOL_INTENT_RE =
+  /(portofolio|portfolio|pdf|profil|cv|resume|analis.{0,20}(situs|website|url|web)|(situs|website|url|web).{0,20}analis|buatkan.{0,30}(portofolio|pdf)|https?:\/\/)/i
+function hasToolIntent(text: string): boolean {
+  return TOOL_INTENT_RE.test(text)
+}
+
 /* ===== Konstanta ===== */
 const MAX_INPUT_LENGTH = 8000
 const MAX_MESSAGES = 20
@@ -163,12 +172,17 @@ export async function runChat(
     }))
 
     let finalContent = ''
+    const lastUserText = String(
+      [...chatMessages].reverse().find(m => m.role === 'user')?.content || '',
+    )
+    const toolIntent = hasToolIntent(lastUserText)
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const modelResult = await callGroqWithTools(
         opts.model || 'chat',
         systemPrompt,
         chatMessages,
         AI_TOOLS as GroqToolDefinition[],
+        toolIntent ? { maxTokens: 800 } : undefined,
       )
 
       if (modelResult.toolCalls.length === 0) {
