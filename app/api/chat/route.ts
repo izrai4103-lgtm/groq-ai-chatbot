@@ -1,5 +1,6 @@
 import { runChat } from '@/lib/engine/engine'
 import type { EngineErrorCode } from '@/lib/engine/types'
+import { flushTokenUsage } from '@/lib/token-usage'
 
 export const maxDuration = 300
 
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
 
     // Jalankan di mesin utama (TypeScript engine)
     const result = await runChat(body?.messages, ip)
+    await flushTokenUsage()
 
     const headers: Record<string, string> = {
       'X-RateLimit-Remaining': String(result.meta.rateLimit?.remaining ?? ''),

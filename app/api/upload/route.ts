@@ -1,5 +1,6 @@
 import { runChat } from '@/lib/engine/engine'
 import { runVisionPipeline } from '@/lib/engine/vision'
+import { flushTokenUsage } from '@/lib/token-usage'
 import { JailbreakScanner, verdictToError } from '@/lib/jailbreak-scanner'
 import type { EngineErrorCode, ScanResult } from '@/lib/engine/types'
 
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
     const messages = [...history, { role: 'user' as const, content: userText }]
 
     const result = await runChat(messages, ip, vision.context, { model: 'upload' })
+    await flushTokenUsage()
     const headers: Record<string, string> = {
       'X-RateLimit-Remaining': String(result.meta.rateLimit?.remaining ?? ''),
       'X-RateLimit-Reset': String(result.meta.rateLimit?.resetAt ?? ''),

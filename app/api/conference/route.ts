@@ -1,4 +1,5 @@
 import { runConference } from '@/lib/engine/engine'
+import { flushTokenUsage } from '@/lib/token-usage'
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
       'anonymous'
 
     const result = await runConference(body?.topic, body?.rounds, ip)
+    await flushTokenUsage()
 
     if (result.blockCode) {
       const status = result.blockCode === 'USER_BANNED' ? 429 : 403

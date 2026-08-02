@@ -1,4 +1,5 @@
 import { runThinking } from '@/lib/engine/engine'
+import { flushTokenUsage } from '@/lib/token-usage'
 
 export const maxDuration = 60
 
@@ -12,6 +13,7 @@ export async function POST(request: Request) {
       'anonymous'
 
     const result = await runThinking(body?.question, ip, Boolean(body?.web))
+    await flushTokenUsage()
 
     if (result.blockCode) {
       const status = result.blockCode === 'USER_BANNED' ? 429 : 403
