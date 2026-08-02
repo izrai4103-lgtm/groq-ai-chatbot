@@ -15,7 +15,7 @@ import type { ChatMessage, EngineErrorCode, EngineResult, ModelKind, ScanResult 
 
 const jailbreakScanner = new JailbreakScanner()
 
-const MAX_TOOL_ROUNDS = 4
+const MAX_TOOL_ROUNDS = 3
 
 /* ===== Konstanta ===== */
 const MAX_INPUT_LENGTH = 8000
