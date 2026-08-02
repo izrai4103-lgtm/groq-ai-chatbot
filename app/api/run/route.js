@@ -10,7 +10,7 @@ export async function POST(request) {
       return Response.json({ error: 'Kode terlalu panjang' }, { status: 400 })
     }
 
-    const { getFeatureKeys } = await import('../../lib/provider-keys.js')
+    const { getFeatureKeys } = await import('@/lib/provider-keys.js')
     const researchKeys = getFeatureKeys('research')
     const apiKey = researchKeys[0]?.key
     if (!apiKey) {
