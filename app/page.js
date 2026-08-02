@@ -19,6 +19,30 @@ const ANIM_KEY = 'groq_anim_v1'
 let idCounter = 0
 const nextId = () => `m${++idCounter}-${Date.now()}`
 const truncate = (s, n = 34) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
+const formatTokens = (n) => (n == null ? '—' : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n))
+const tokenLevel = (remaining, limit) => {
+  if (remaining == null || !limit) return ''
+  const pct = remaining / limit
+  return pct > 0.5 ? 'ok' : pct > 0.2 ? 'mid' : 'low'
+}
+const formatReset = (s) => {
+  if (s == null || !Number.isFinite(s)) return ''
+  if (s <= 0) return '0s'
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return m > 0 ? `${m}:${String(sec).padStart(2, '0')}` : `${sec}s`
+}
+function TokenBadge({ usage, now }) {
+  if (!usage) return null
+  const { remaining, limit, resetAt } = usage
+  const resetIn = resetAt ? Math.max(0, Math.ceil((resetAt - now) / 1000)) : null
+  return (
+    <span className={`m-tokens ${tokenLevel(remaining, limit)}`} title={`Sisa token: ${remaining.toLocaleString('id-ID')} (kuota per menit)`}>
+      <span className="m-tokens-n">{formatTokens(remaining)}</span>
+      {resetIn != null && <span className="m-tokens-r">reset {formatReset(resetIn)}</span>}
+    </span>
+  )
+}
 
 /* ===== UX EVENT LOG (ringan, console saja — tidak disimpan) ===== */
 function logUX(event, extra) {
@@ -297,6 +321,8 @@ export default function Home() {
   const [showProfile, setShowProfile] = useState(false)
   const [profile, setProfile] = useState(loadProfile)
   const [session, setSession] = useState(loadSession)
+  const [tokenUsage, setTokenUsage] = useState(null)
+  const [now, setNow] = useState(Date.now())
 
   const chatRef = useRef(null)
   const taRef = useRef(null)
@@ -323,6 +349,28 @@ export default function Home() {
     apply()
     mq.addEventListener?.('change', apply)
     return () => mq.removeEventListener?.('change', apply)
+  }, [])
+
+  /* Sisa token Groq: angka real-time (polling tiap 6 detik) */
+  useEffect(() => {
+    let alive = true
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/token-usage', { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json()
+        if (alive) setTokenUsage(data)
+      } catch (e) { /* server restart / offline */ }
+    }
+    poll()
+    const id = setInterval(poll, 6000)
+    return () => { alive = false; clearInterval(id) }
+  }, [])
+
+  /* Countdown reset token: tick tiap detik */
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
@@ -793,6 +841,7 @@ export default function Home() {
             <button className="model-btn" onClick={() => setMenuOpen(o => !o)} aria-haspopup="listbox" aria-expanded={menuOpen}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z" /><path d="M12 6v6l4 2" /></svg>
               <span className="m-name">{MODELS.find(m => m.id === model)?.name}</span>
+              <TokenBadge usage={tokenUsage} now={now} />
               <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 9l6 6 6-6" /></svg>
             </button>
             <div className="model-menu" role="listbox">
@@ -800,7 +849,10 @@ export default function Home() {
                 <button key={m.id} role="option" aria-selected={model === m.id} className={`model-opt ${model === m.id ? 'selected' : ''}`} onClick={() => switchModel(m.id)}>
                   <div className="m-ic">{m.icon}</div>
                   <div className="m-info">
-                    <div className="m-name">{m.name}</div>
+                    <div className="m-name-row">
+                      <div className="m-name">{m.name}</div>
+                      <TokenBadge usage={tokenUsage} now={now} />
+                    </div>
                     <div className="m-desc">{m.desc}</div>
                   </div>
                   <svg className="m-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6L9 17l-5-5" /></svg>
