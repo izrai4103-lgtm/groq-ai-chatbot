@@ -16,7 +16,7 @@ import type { ChatMessage, EngineErrorCode, EngineResult, ModelKind, ScanResult 
 
 const jailbreakScanner = new JailbreakScanner()
 
-const MAX_TOOL_ROUNDS = 3
+const MAX_TOOL_ROUNDS = 6
 
 // Request yang jelas minta tool (portofolio/PDF/analisis website) langsung
 // diberi ruang output lebih besar, karena argumen tool (JSON) butuh >160 token
@@ -241,7 +241,7 @@ export async function runChat(
           opts.model || 'chat',
           systemPrompt,
           [...chatMessages, { role: 'user', content: 'Jawab langsung dengan satu atau dua kalimat tanpa memanggil tool.' }] as GroqToolMessage[],
-          AI_TOOLS as GroqToolDefinition[],
+          [] as GroqToolDefinition[],
           { maxTokens: 2048, temperature: 0.3 },
         )
         if (fb.content && fb.content.trim()) finalContent = fb.content
