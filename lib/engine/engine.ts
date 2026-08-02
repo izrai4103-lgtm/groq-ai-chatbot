@@ -143,10 +143,19 @@ export async function runChat(
 
     // 7. Eksekusi model (terisolasi) — system prompt dari schema.json + persona
     //    Alur: sandbox → semua models AI → jailbreak scanner → prompt sistem
-    const baseSystem = `${BASE_SYSTEM_PROMPT}\n\n${JAILBREAK_POLICY_PROMPT}`
-    const systemPrompt = context
-      ? `${baseSystem}\n\n${context}\n\n${TOOL_GUIDANCE_PROMPT}`
-      : `${baseSystem}\n\n${TOOL_GUIDANCE_PROMPT}`
+    //    Prompt di-ringkas agar hemat kuota TPM (tool-calling butuh 2-3 ronde/menit).
+    const compactBase = (() => {
+      const s = BASE_SYSTEM_PROMPT
+      return s.length <= 1800 ? s : s.slice(0, s.lastIndexOf('\n', 1800))
+    })()
+    const systemPrompt = [
+      compactBase,
+      JAILBREAK_POLICY_PROMPT,
+      context,
+      TOOL_GUIDANCE_PROMPT,
+    ]
+      .filter(Boolean)
+      .join('\n\n')
 
     const chatMessages: GroqToolMessage[] = filtered.map(m => ({
       role: m.role,
