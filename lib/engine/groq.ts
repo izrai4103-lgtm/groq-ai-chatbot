@@ -92,7 +92,8 @@ async function fetchGroq(
   let failedRes = first.failed as Response
   for (let attempt = 0; attempt < 3; attempt++) {
     const retryAfter = Number(failedRes.headers.get('retry-after') || 0)
-    const wait = Math.min(retryAfter || 20_000, 40_000)
+    const resetSec = Number(failedRes.headers.get('x-ratelimit-reset-tokens') || 0)
+    const wait = Math.min(Math.max(retryAfter || 0, resetSec || 0, 15_000), 60_000)
     if (wait > 0) await sleep(wait)
     const next = await tryKeys()
     if (next.ok) return { res: next.ok, apiKey: lastKey }
