@@ -6,7 +6,9 @@
 import { JailbreakScanner, JAILBREAK_POLICY_PROMPT, verdictToError } from '../jailbreak-scanner'
 import { thinkAndResearch } from '../code-executor'
 import { holdConference } from '../model-conference'
-import { callGroq, EngineError } from './groq'
+import { callGroqWithTools, EngineError } from './groq'
+import type { GroqToolDefinition, GroqToolMessage } from './groq'
+import portfolioTools from '@/lib/portfolioPdfTool'
 import { BASE_SYSTEM_PROMPT } from '../schema-prompt'
 import { checkRateLimit } from './rate-limit'
 import type { ChatMessage, EngineErrorCode, EngineResult, ModelKind, ScanResult } from './types'
@@ -66,6 +68,43 @@ function err(code: EngineErrorCode, message: string, meta?: unknown): EngineResu
 
 function ok(content: string, meta: EngineResult['meta'] = {}): EngineResult {
   return { success: true, content, error: null, meta }
+}
+
+/* ============================================================
+ * TOOL AI — generate PDF portofolio & analisis website
+ * Alur integrasi: sandbox → semua models AI (tool calling Groq)
+ * ============================================================ */
+const PORTFOLIO_TOOLS: GroqToolDefinition[] = [
+  portfolioTools.analyzeWebsiteTool as GroqToolDefinition,
+  portfolioTools.generatePortfolioPdfTool as GroqToolDefinition,
+]
+
+const TOOL_GUIDANCE_PROMPT = `
+## FUNGSI TAMBAHAN (TOOL AI)
+
+Kamu punya 2 fungsi (tool) yang bisa dipanggil sendiri:
+
+1. analyze_website — membuka URL website sungguhan di server lalu mengambil judul, deskripsi, heading, cuplikan teks, screenshot, status HTTP, waktu load, mobile-friendly, dan error console. Gunakan saat user minta portofolio/laporan dari sebuah URL (misal "buatkan portofolio dari website https://..."). Setelah hasilnya masuk, rangkum fitur & kesan website itu dengan kata-katamu sendiri, jangan salin mentah-mentah.
+
+2. generate_portfolio_pdf — membuat file PDF portofolio profesional dari data yang sudah terkumpul lewat percakapan (nama, jabatan, ringkasan, skill, pengalaman, proyek, pendidikan, kontak). Panggil HANYA setelah data penting lengkap; jangan mengarang data yang belum disebutkan user.
+
+Alur yang benar:
+- User minta portofolio dari URL → panggil analyze_website → rangkum hasilnya → panggil generate_portfolio_pdf (screenshot dari hasil analisis boleh dipakai di projects[].screenshot) → sampaikan link PDF yang dikembalikan tool ke user.
+- User minta portofolio tanpa URL → kumpulkan data lewat obrolan dulu → panggil generate_portfolio_pdf → sampaikan link PDF.
+- Kalau analyze_website gagal (ok: false) → beri tahu user, jangan mengarang data website.
+`
+
+const MAX_TOOL_ROUNDS = 4
+
+async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+  switch (name) {
+    case 'analyze_website':
+      return portfolioTools.runAnalyzeWebsite(args as { url: string })
+    case 'generate_portfolio_pdf':
+      return portfolioTools.runGeneratePortfolioPdf(args)
+    default:
+      return { ok: false, error: `Tool tidak dikenal: ${name}` }
+  }
 }
 
 /* ============================================================
@@ -140,9 +179,56 @@ export async function runChat(
     // 7. Eksekusi model (terisolasi) — system prompt dari schema.json + persona
     //    Alur: sandbox → semua models AI → jailbreak scanner → prompt sistem
     const baseSystem = `${BASE_SYSTEM_PROMPT}\n\n${JAILBREAK_POLICY_PROMPT}`
-    const systemPrompt = context ? `${baseSystem}\n\n${context}` : baseSystem
-    const content = await callGroq(opts.model || 'chat', systemPrompt, filtered)
-    return ok(content, meta)
+    const systemPrompt = context
+      ? `${baseSystem}\n\n${context}\n\n${TOOL_GUIDANCE_PROMPT}`
+      : `${baseSystem}\n\n${TOOL_GUIDANCE_PROMPT}`
+
+    const chatMessages: GroqToolMessage[] = filtered.map(m => ({
+      role: m.role,
+      content: m.content,
+    }))
+
+    let finalContent = ''
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const modelResult = await callGroqWithTools(
+        opts.model || 'chat',
+        systemPrompt,
+        chatMessages,
+        PORTFOLIO_TOOLS,
+      )
+
+      if (modelResult.toolCalls.length === 0) {
+        finalContent = modelResult.content
+        break
+      }
+
+      chatMessages.push({
+        role: 'assistant',
+        content: modelResult.content || null,
+        tool_calls: modelResult.toolCalls.map(tc => ({
+          id: tc.id,
+          type: 'function' as const,
+          function: { name: tc.name, arguments: tc.arguments },
+        })),
+      })
+
+      for (const tc of modelResult.toolCalls) {
+        let toolResult: unknown
+        try {
+          const args = JSON.parse(tc.arguments || '{}') as Record<string, unknown>
+          toolResult = await executeTool(tc.name, args)
+        } catch (e) {
+          toolResult = { ok: false, error: e instanceof Error ? e.message : String(e) }
+        }
+        chatMessages.push({
+          role: 'tool',
+          tool_call_id: tc.id,
+          content: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult),
+        })
+      }
+    }
+
+    return ok(finalContent, meta)
   } catch (e) {
     if (e instanceof EngineError) {
       return err(e.code as EngineErrorCode, e.message, e.meta)

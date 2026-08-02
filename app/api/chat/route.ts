@@ -1,6 +1,8 @@
 import { runChat } from '@/lib/engine/engine'
 import type { EngineErrorCode } from '@/lib/engine/types'
 
+export const maxDuration = 300
+
 const STATUS_MAP: Record<EngineErrorCode, number> = {
   INVALID_INPUT: 400,
   EMPTY_AFTER_SANITIZE: 400,

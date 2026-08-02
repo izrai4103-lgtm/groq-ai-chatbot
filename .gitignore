@@ -5,3 +5,6 @@ out/
 .vercel
 preview-mobile/
 preview-desktop/
+.env*
+public/portfolios/
+*.tsbuildinfo
