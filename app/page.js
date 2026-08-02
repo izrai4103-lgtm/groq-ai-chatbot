@@ -37,7 +37,7 @@ function TokenBadge({ usage, now }) {
   return (
     <span
       className={`m-tokens ${tokenLevel(remaining, quota)}`}
-      title={`Sisa token: ${remaining.toLocaleString('id-ID')} dari ${quota.toLocaleString('id-ID')} per hari. Reset otomatis tengah malam (UTC).`}
+      title={`Sisa token: ${remaining.toLocaleString('id-ID')} dari ${quota.toLocaleString('id-ID')} per 3 menit. Reset otomatis setiap 3 menit.`}
     >
       <span className="m-tokens-n">Sisa {formatTokens(remaining)}</span>
       {resetIn != null && <span className="m-tokens-r">reset {formatReset(resetIn)}</span>}
