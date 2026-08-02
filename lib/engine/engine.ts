@@ -200,6 +200,7 @@ export async function runChat(
         })),
       })
 
+      let done = false
       for (const tc of modelResult.toolCalls) {
         let toolResult: unknown
         try {
@@ -213,7 +214,21 @@ export async function runChat(
           tool_call_id: tc.id,
           content: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult),
         })
+
+        // generate_portfolio_pdf sukses -> jawaban final bisa langsung disusun
+        // server (hemat 1 ronde model = hemat kuota TPM yang sangat terbatas).
+        if (
+          tc.name === 'generate_portfolio_pdf' &&
+          toolResult &&
+          typeof toolResult === 'object' &&
+          (toolResult as { ok?: boolean; url?: string }).ok !== false &&
+          (toolResult as { url?: string }).url
+        ) {
+          finalContent = `Portofolio PDF siap! Download: ${(toolResult as { url: string }).url}`
+          done = true
+        }
       }
+      if (done) break
     }
 
     return ok(finalContent, meta)
