@@ -4,7 +4,7 @@ import type { ChatMessage, ModelKind, ModelSpec } from './types'
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 export const MODELS: Record<ModelKind, ModelSpec> = {
-  chat: { key: 'GROQ_API_KEY', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Chat' },
+  chat: { key: 'GROQ_API_KEY', model: process.env.CHAT_MODEL || 'llama-3.3-70b-versatile', maxTokens: 1200, name: 'Chat' },
   thinking: { key: 'GROQ_API_KEY_2', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Thinking' },
   research: { key: 'GROQ_API_KEY_3', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Research' },
   creative: { key: 'GROQ_API_KEY_4', model: 'llama-3.1-8b-instant', maxTokens: 160, name: 'Creative' },
@@ -50,7 +50,7 @@ export async function callGroq(
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
-    const res = await fetch(GROQ_URL, {
+    let res = await fetch(GROQ_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -153,7 +153,7 @@ export async function callGroqWithTools(
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
-    const res = await fetch(GROQ_URL, {
+    let res = await fetch(GROQ_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -172,9 +172,44 @@ export async function callGroqWithTools(
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
+      // Retry sekali saat model gagal menghasilkan argumen tool yang valid.
+      const isToolFail = res.status === 400 && detail.includes('tool_use_failed')
+      if (isToolFail) {
+        res = await fetch(GROQ_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: spec.model,
+            messages: [{ role: 'system', content: systemPrompt }, ...messages],
+            temperature: 0.2,
+            max_tokens: maxTokens,
+            tools,
+            tool_choice: 'auto',
+          }),
+          signal: controller.signal,
+        })
+        if (res.ok) {
+          const data2 = await res.json() as {
+            choices?: Array<{ message?: { content?: string | null; tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: string } }> } }>
+          }
+          const m2 = data2.choices?.[0]?.message
+          return {
+            content: m2?.content ?? '',
+            toolCalls: (m2?.tool_calls || []).map(tc => ({
+              id: tc.id || '',
+              name: tc.function?.name || '',
+              arguments: tc.function?.arguments || '{}',
+            })),
+          }
+        }
+      }
+      const detail2 = await res.text().catch(() => '')
       throw new EngineError('AI_MODEL_ERROR', `Model AI error (${res.status})`, {
         status: res.status,
-        detail: detail.slice(0, 500),
+        detail: detail2.slice(0, 500),
       })
     }
 
