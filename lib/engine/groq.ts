@@ -146,7 +146,7 @@ export async function callGroqWithTools(
   }
 
   const temperature = options.temperature ?? 0.7
-  const maxTokens = options.maxTokens ?? 700
+  const maxTokens = options.maxTokens ?? 1200
   const timeoutMs = options.timeoutMs ?? 60_000
 
   const controller = new AbortController()
