@@ -319,10 +319,6 @@ textarea{font-family:var(--font)}
 .send-btn.stop{background:var(--text);color:#000}
 .send-btn.stop:hover{background:var(--text-sec)}
 .send-btn svg{pointer-events:none;display:block}
-.composer-hint{
-  text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px;user-select:none
-}
-
 /* ===== SCROLL BOTTOM ===== */
 .scroll-btm{
   position:fixed;bottom:112px;left:50%;transform:translateX(-50%);width:34px;height:34px;
@@ -392,7 +388,6 @@ textarea{font-family:var(--font)}
     transform:none;max-height:calc(100dvh - 72px);overflow-y:auto
   }
   .model-picker.open .model-menu{transform:none}
-  .composer-hint{font-size:10px}
 }
 
 /* ===== SETTINGS (Setelan: enable/disable animasi) ===== */

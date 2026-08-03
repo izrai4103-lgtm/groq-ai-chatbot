@@ -962,7 +962,6 @@ export default function Home() {
                 </button>
               )}
             </form>
-            <div className="composer-hint">Groq AI dapat membuat kesalahan. Periksa informasi penting.</div>
           </div>
         </div>
 
