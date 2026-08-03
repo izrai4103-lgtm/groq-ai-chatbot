@@ -202,7 +202,7 @@ export async function runChat(
     if (wantsResearch) {
       try {
         const webResults = await fetchWebResearch(lastUserText)
-        const sources = (webResults || []).slice(0, 8)
+        const sources = (webResults?.results || []).slice(0, 8)
         if (sources.length > 0) {
           researchContext = '\n\n🔍 HASIL RISET WEB (dari Research Agent, key 5-6):\n' +
             sources.map((r: any, i: number) =>
@@ -468,7 +468,7 @@ export async function runResearch(
 
   try {
     const webResults = await fetchWebResearch(question)
-    const sources = (webResults || []).slice(0, 10).map((r: any) => ({
+    const sources = (webResults?.results || []).slice(0, 10).map((r: any) => ({
       title: r.title || r.name || '',
       url: r.url || r.link || '',
       snippet: r.snippet || r.description || '',
