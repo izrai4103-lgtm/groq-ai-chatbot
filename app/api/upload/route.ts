@@ -80,7 +80,10 @@ export async function POST(request: Request) {
     const before = getCompletionRecorded()
     const result = await runChat(messages, ip, vision.context, { model: 'upload' })
     await flushTokenUsage()
-    await deductUserTokens(userKey, isLoggedIn, getCompletionRecorded() - before)
+    const spent = getCompletionRecorded() - before
+    const tokenUsage =
+      (await deductUserTokens(userKey, isLoggedIn, spent)) ||
+      (await getUserTokenStatus(userKey, isLoggedIn))
     const headers: Record<string, string> = {
       'X-RateLimit-Remaining': String(result.meta.rateLimit?.remaining ?? ''),
       'X-RateLimit-Reset': String(result.meta.rateLimit?.resetAt ?? ''),
@@ -89,13 +92,13 @@ export async function POST(request: Request) {
     if (!result.success) {
       const status = result.error ? STATUS_MAP[result.error.code] || 500 : 500
       return Response.json(
-        { error: result.error?.message || 'Unknown error' },
+        { error: result.error?.message || 'Unknown error', tokenUsage },
         { status, headers },
       )
     }
 
     return Response.json(
-      { content: result.content, vision: { kind: vision.kind, name: vision.name } },
+      { content: result.content, vision: { kind: vision.kind, name: vision.name }, tokenUsage },
       { headers },
     )
   } catch (err) {

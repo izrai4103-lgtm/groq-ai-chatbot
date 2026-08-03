@@ -32,15 +32,19 @@ const formatReset = (s) => {
 function TokenBadge({ usage, now }) {
   const user = usage?.user
   if (!user) return null
-  const { remaining, quota, resetAt } = user
-  const resetIn = resetAt ? Math.max(0, Math.ceil((resetAt - now) / 1000)) : null
+  const { remaining, quota, resetAt, serverNow } = user
+  // Koreksi clock skew: hitung sisa detik relatif ke serverNow bila ada
+  const base = typeof serverNow === 'number' ? serverNow + (now - (usage._clientFetchedAt || now)) : now
+  const resetIn = resetAt != null
+    ? Math.max(0, Math.ceil((resetAt - base) / 1000))
+    : null
   return (
     <span
       className={`m-tokens ${tokenLevel(remaining, quota)}`}
-      title={`Sisa token: ${remaining.toLocaleString('id-ID')} dari ${quota.toLocaleString('id-ID')} per menit. Reset otomatis setiap 1 menit.`}
+      title={`Sisa token: ${Number(remaining).toLocaleString('id-ID')} dari ${Number(quota).toLocaleString('id-ID')} per menit. Reset otomatis setiap 1 menit.`}
     >
       <span className="m-tokens-n">Sisa {formatTokens(remaining)}</span>
-      {resetIn != null && <span className="m-tokens-r">reset {formatReset(resetIn)}</span>}
+      {resetIn != null && <span className="m-tokens-r">· {formatReset(resetIn)}</span>}
     </span>
   )
 }
@@ -342,28 +346,49 @@ export default function Home() {
     return () => mq.removeEventListener?.('change', apply)
   }, [])
 
-  /* Sisa token user: angka real-time (polling tiap 6 detik + refresh setelah kirim) */
+  /* Sisa token user: real-time (poll 2s + update langsung dari response API) */
+  const applyTokenUsage = useCallback((tokenUsage) => {
+    if (!tokenUsage || typeof tokenUsage !== 'object') return
+    setTokenUsage(prev => ({
+      ...(prev || {}),
+      user: tokenUsage,
+      _clientFetchedAt: Date.now(),
+    }))
+  }, [])
+
   const pollTokenUsage = useCallback(async () => {
     try {
       const gid = session?.guestId || ''
       const res = await fetch(`/api/token-usage?guestId=${encodeURIComponent(gid)}`, { cache: 'no-store' })
       if (!res.ok) return
       const data = await res.json()
-      setTokenUsage(data)
+      setTokenUsage({ ...data, _clientFetchedAt: Date.now() })
     } catch (e) { /* server restart / offline */ }
   }, [session])
 
   useEffect(() => {
     pollTokenUsage()
-    const id = setInterval(pollTokenUsage, 6000)
+    const id = setInterval(pollTokenUsage, 2000)
     return () => clearInterval(id)
   }, [pollTokenUsage])
 
-  /* Countdown reset token: tick tiap detik */
+  /* Countdown reset token: tick tiap 250ms biar terasa real-time */
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000)
+    const id = setInterval(() => setNow(Date.now()), 250)
     return () => clearInterval(id)
   }, [])
+
+  /* Saat countdown habis → refresh sisa token ke penuh */
+  useEffect(() => {
+    const resetAt = tokenUsage?.user?.resetAt
+    if (!resetAt) return
+    const left = resetAt - Date.now()
+    if (left > 0 && left < 1500) {
+      const t = setTimeout(() => pollTokenUsage(), left + 50)
+      return () => clearTimeout(t)
+    }
+    if (left <= 0) pollTokenUsage()
+  }, [now, tokenUsage, pollTokenUsage])
 
   useEffect(() => {
     saveProfile(profile)
@@ -500,9 +525,11 @@ export default function Home() {
         })
         if (!res.ok) {
           const e2 = await res.json().catch(() => ({}))
+          if (e2.tokenUsage) applyTokenUsage(e2.tokenUsage)
           throw new Error(e2.error || `Error ${res.status}`)
         }
         data = await res.json()
+        if (data.tokenUsage) applyTokenUsage(data.tokenUsage)
 
         // Model minta aksi website → eksekusi di browser, lanjut ronde berikutnya.
         if (data.websiteAction && typeof window !== 'undefined' && window.AIWebsiteController) {
@@ -551,7 +578,7 @@ export default function Home() {
       abortRef.current = null
       pollTokenUsage()
     }
-  }, [loading, webSearch, animPref, pollTokenUsage, showToast])
+  }, [loading, webSearch, animPref, pollTokenUsage, applyTokenUsage, showToast, session])
 
   const handleSubmit = useCallback((e) => {
     e?.preventDefault()

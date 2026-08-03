@@ -18,24 +18,30 @@ export async function POST(request: Request) {
 
     const userStatus = await getUserTokenStatus(userKey, isLoggedIn)
     if (userStatus.remaining <= 0) {
-      return Response.json({ error: 'Kuota token kamu habis. Reset otomatis dalam 1 menit.' }, { status: 429 })
+      return Response.json(
+        { error: 'Kuota token kamu habis. Reset otomatis dalam 1 menit.', tokenUsage: userStatus },
+        { status: 429 },
+      )
     }
 
     const before = getCompletionRecorded()
     const result = await runThinking(body?.question, ip, Boolean(body?.web))
     await flushTokenUsage()
-    await deductUserTokens(userKey, isLoggedIn, getCompletionRecorded() - before)
+    const spent = getCompletionRecorded() - before
+    const tokenUsage =
+      (await deductUserTokens(userKey, isLoggedIn, spent)) ||
+      (await getUserTokenStatus(userKey, isLoggedIn))
 
     if (result.blockCode) {
       const status = result.blockCode === 'USER_BANNED' ? 429 : 403
-      return Response.json({ error: result.error }, { status })
+      return Response.json({ error: result.error, tokenUsage }, { status })
     }
 
     if (result.error) {
-      return Response.json({ error: result.error }, { status: 500 })
+      return Response.json({ error: result.error, tokenUsage }, { status: 500 })
     }
 
-    return Response.json(result)
+    return Response.json({ ...result, tokenUsage })
   } catch (err) {
     console.error('Think error:', err)
     return Response.json({ error: 'Internal server error' }, { status: 500 })

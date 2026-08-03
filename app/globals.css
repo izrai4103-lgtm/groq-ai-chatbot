@@ -378,7 +378,11 @@ textarea{font-family:var(--font)}
   .model-btn .m-name{max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 @media(max-width:480px){
-  .model-btn .m-tokens{display:none}
+  .model-btn .m-tokens,.model-btn-static .m-tokens{
+    display:flex;flex-direction:row;align-items:center;gap:4px;padding:3px 7px;
+  }
+  .m-tokens .m-tokens-n{font-size:11px}
+  .m-tokens .m-tokens-r{font-size:9px}
   .msg-av{width:26px}
   .av{width:26px;height:26px;font-size:11px}
   .msg-txt{font-size:14px}

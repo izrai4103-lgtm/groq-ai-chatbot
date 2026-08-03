@@ -57,7 +57,9 @@ export async function POST(request: Request) {
       : undefined
     const result = await runChat(body?.messages, ip, context)
     await flushTokenUsage()
-    await deductUserTokens(userKey, isLoggedIn, getCompletionRecorded() - before)
+    const spent = getCompletionRecorded() - before
+    const tokenUsage = (await deductUserTokens(userKey, isLoggedIn, spent))
+      || (await getUserTokenStatus(userKey, isLoggedIn))
 
     const headers: Record<string, string> = {
       'X-RateLimit-Remaining': String(result.meta.rateLimit?.remaining ?? ''),
@@ -73,14 +75,14 @@ export async function POST(request: Request) {
           : undefined
       return Response.json(
         detail
-          ? { error: result.error?.message || 'Unknown error', detail }
-          : { error: result.error?.message || 'Unknown error' },
+          ? { error: result.error?.message || 'Unknown error', detail, tokenUsage }
+          : { error: result.error?.message || 'Unknown error', tokenUsage },
         { status, headers },
       )
     }
 
     return Response.json(
-      { content: result.content, websiteAction: result.websiteAction ?? null },
+      { content: result.content, websiteAction: result.websiteAction ?? null, tokenUsage },
       { headers },
     )
   } catch (err) {
