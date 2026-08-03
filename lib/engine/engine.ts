@@ -14,6 +14,7 @@ import { BASE_SYSTEM_PROMPT } from '../schema-prompt'
 import { MATH_TUTOR_PROMPT } from '../math-tutor-prompt'
 import { checkRateLimit } from './rate-limit'
 import { WEBSITE_CONTROL_PROMPT, WEBSITE_TOOLS, WEBSITE_TOOL_NAMES } from '../website-control'
+import { webResearch } from '../web-research'
 import type { ChatMessage, EngineErrorCode, EngineResult, ModelKind, ScanResult } from './types'
 
 const jailbreakScanner = new JailbreakScanner()
@@ -56,7 +57,6 @@ const BLOCKED_PATTERNS = [
 
 /* ===== Sanitasi input ===== */
 function sanitizeInput(text: string): string {
-  // Buang kontrol char + zero-width (anti-obfuscation), batasi panjang
   const clean = text
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
     .replace(/[\u200b\u200c\u200d\ufeff\u2060\u180e\u00ad]/g, '')
@@ -174,9 +174,7 @@ export async function runChat(
       }
     }
 
-    // 7. Eksekusi model (terisolasi) — system prompt dari schema.json + persona
-    //    Alur: sandbox → semua models AI → jailbreak scanner → prompt sistem
-    //    Prompt di-ringkas agar hemat kuota TPM (tool-calling butuh 2-3 ronde/menit).
+    // 7. Eksekusi model (terisolasi)
     const compactBase = (() => {
       const s = BASE_SYSTEM_PROMPT
       return s.length <= 1800 ? s : s.slice(0, s.lastIndexOf('\n', 1800))
@@ -228,8 +226,6 @@ export async function runChat(
 
       let done = false
       for (const tc of modelResult.toolCalls) {
-        // Tool website TIDAK dieksekusi di server — dikirim ke frontend
-        // untuk dieksekusi di browser, hasilnya dikembalikan di request berikutnya.
         if (WEBSITE_TOOL_NAMES.has(tc.name)) {
           let args: Record<string, unknown> = {}
           try {
@@ -258,8 +254,6 @@ export async function runChat(
           content: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult),
         })
 
-        // generate_portfolio_pdf sukses -> jawaban final bisa langsung disusun
-        // server (hemat 1 ronde model = hemat kuota TPM yang sangat terbatas).
         if (
           tc.name === 'generate_portfolio_pdf' &&
           toolResult &&
@@ -274,8 +268,6 @@ export async function runChat(
       if (done) break
     }
 
-    // Model kadang diam (konten kosong tanpa tool call) — coba sekali lagi
-    // dengan instruksi tegas sebelum menyerah.
     const rawFinal = finalContent
     const normFinal = normalizeOutput(rawFinal)
     finalContent = isPathological(rawFinal, normFinal) ? '' : normFinal
@@ -292,7 +284,7 @@ export async function runChat(
           const normFb = normalizeOutput(fb.content)
           finalContent = isPathological(fb.content, normFb) ? '' : normFb
         }
-      } catch { /* abaikan — error asli tetap dilaporkan */ }
+      } catch { /* abaikan */ }
       if (!finalContent.trim()) {
         return err('AI_EMPTY_RESPONSE', 'Model AI mengembalikan respon kosong, coba lagi sebentar')
       }
@@ -336,6 +328,145 @@ export async function runThinking(question: unknown, ip: string | undefined, use
   }
 
   return (await thinkAndResearch(question, clientIp, useWeb)) as unknown as ThinkResult
+}
+
+/* ============================================================
+ * RESEARCH — Deep research menggunakan key 5 & 6.
+ * Web search + AI synthesis untuk riset mendalam.
+ * ============================================================ */
+export interface ResearchResult {
+  answer?: string
+  sources?: Array<{ title: string; url: string; snippet?: string }>
+  [key: string]: unknown
+}
+
+export async function runResearch(
+  question: unknown,
+  ip: string | undefined,
+): Promise<ResearchResult | { code: string; message: string }> {
+  const clientIp = ip || 'anonymous'
+  if (typeof question !== 'string' || question.trim() === '') {
+    return { code: 'INVALID_INPUT', message: 'Pertanyaan diperlukan' }
+  }
+  if (question.length > MAX_INPUT_LENGTH) {
+    return { code: 'INVALID_INPUT', message: 'Pertanyaan terlalu panjang' }
+  }
+
+  const scan = await jailbreakScanner.scan(question, clientIp) as ScanResult
+  if (scan.verdict === 'banned' || scan.verdict === 'block') {
+    const scanErr = verdictToError(scan) as { code: string; message: string }
+    return scanErr
+  }
+
+  const rate = checkRateLimit(clientIp)
+  if (!rate.allowed) {
+    return { code: 'RATE_LIMITED', message: `Terlalu banyak request. Tunggu ${Math.ceil((rate.resetAt - Date.now()) / 1000)} detik` }
+  }
+
+  try {
+    // 1. Web research (gratis, multi-sumber)
+    const webResults = await webResearch(question)
+    const sources = (webResults || []).slice(0, 10).map((r: any) => ({
+      title: r.title || r.name || '',
+      url: r.url || r.link || '',
+      snippet: r.snippet || r.description || '',
+    }))
+
+    // 2. Synthesize dengan AI menggunakan key research (5 & 6)
+    const contextSnippets = sources
+      .map((s: { title: string; snippet: string }, i: number) => `[${i + 1}] ${s.title}: ${s.snippet}`)
+      .join('\n')
+
+    const systemPrompt = `Kamu adalah peneliti AI. Berdasarkan sumber web berikut, berikan jawaban komprehensif dan akurat untuk pertanyaan user. Sertakan referensi [nomor] ke sumber.\n\nSumber:\n${contextSnippets}`
+
+    const result = await callGroqWithTools(
+      'research',
+      systemPrompt,
+      [{ role: 'user', content: question }] as GroqToolMessage[],
+      [] as GroqToolDefinition[],
+      { maxTokens: 2048 },
+    )
+
+    return {
+      answer: normalizeOutput(result.content || ''),
+      sources,
+    }
+  } catch (e) {
+    if (e instanceof EngineError) {
+      return { code: e.code, message: e.message }
+    }
+    return { code: 'AI_UNKNOWN', message: 'Research gagal: ' + (e instanceof Error ? e.message : String(e)) }
+  }
+}
+
+/* ============================================================
+ * CREATIVE — Mode kreatif menggunakan key 7 & 8.
+ * Untuk puisi, cerita, storytelling, brainstorming, copywriting.
+ * ============================================================ */
+export interface CreativeResult {
+  content?: string
+  style?: string
+  [key: string]: unknown
+}
+
+export async function runCreative(
+  prompt: unknown,
+  style: unknown,
+  ip: string | undefined,
+): Promise<CreativeResult | { code: string; message: string }> {
+  const clientIp = ip || 'anonymous'
+  if (typeof prompt !== 'string' || prompt.trim() === '') {
+    return { code: 'INVALID_INPUT', message: 'Prompt diperlukan' }
+  }
+  if (prompt.length > MAX_INPUT_LENGTH) {
+    return { code: 'INVALID_INPUT', message: 'Prompt terlalu panjang' }
+  }
+
+  const scan = await jailbreakScanner.scan(prompt, clientIp) as ScanResult
+  if (scan.verdict === 'banned' || scan.verdict === 'block') {
+    const scanErr = verdictToError(scan) as { code: string; message: string }
+    return scanErr
+  }
+
+  const rate = checkRateLimit(clientIp)
+  if (!rate.allowed) {
+    return { code: 'RATE_LIMITED', message: `Terlalu banyak request. Tunggu ${Math.ceil((rate.resetAt - Date.now()) / 1000)} detik` }
+  }
+
+  try {
+    const styleHint = typeof style === 'string' && style.trim() ? style.trim() : 'default'
+    const CREATIVE_STYLES: Record<string, string> = {
+      puisi: 'Kamu adalah penyair berbakat. Tulis dengan bahasa indah, penuh metafora dan emosi.',
+      cerita: 'Kamu adalah penulis cerita. Tulis narasi yang menarik dengan karakter hidup dan alur yang memukau.',
+      humor: 'Kamu adalah komedian. Tulis dengan gaya lucu, witty, dan menghibur.',
+      formal: 'Kamu adalah penulis profesional. Tulis dengan gaya formal, terstruktur, dan elegan.',
+      copywriting: 'Kamu adalah copywriter handal. Tulis dengan gaya persuasif, catchy, dan to-the-point.',
+      brainstorm: 'Kamu adalah kreator ide. Berikan ide-ide kreatif, out-of-the-box, dan inovatif.',
+      default: 'Kamu adalah penulis kreatif serbaguna. Sesuaikan gaya dengan konteks prompt.',
+    }
+
+    const systemPrompt = CREATIVE_STYLES[styleHint] || CREATIVE_STYLES['default']
+
+    const result = await callGroqWithTools(
+      'creative',
+      systemPrompt,
+      [{ role: 'user', content: prompt }] as GroqToolMessage[],
+      [] as GroqToolDefinition[],
+      { maxTokens: 2048, temperature: 0.9 },
+    )
+
+    const output = normalizeOutput(result.content || '')
+    if (!output) {
+      return { code: 'AI_EMPTY_RESPONSE', message: 'Model tidak menghasilkan konten kreatif' }
+    }
+
+    return { content: output, style: styleHint }
+  } catch (e) {
+    if (e instanceof EngineError) {
+      return { code: e.code, message: e.message }
+    }
+    return { code: 'AI_UNKNOWN', message: 'Creative gagal: ' + (e instanceof Error ? e.message : String(e)) }
+  }
 }
 
 /* ============================================================
