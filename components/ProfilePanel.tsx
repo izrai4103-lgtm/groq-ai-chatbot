@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DEFAULT_PROFILE, makeAvatarDataUrl, type Profile } from '../lib/profile'
 import { guestLogin, sanitizeGuestName, type GuestSession } from '../lib/auth-sandbox'
 
@@ -42,8 +42,12 @@ const WILAYAH_OPTIONS = ['Jawa Timur', 'Jawa Barat', 'Jawa Tengah', 'Kalimantan'
 
 export default function ProfilePanel({ profile, session, onProfileChange, onSessionChange, onClose, onToast }: ProfilePanelProps) {
   const avatarRef = useRef<HTMLInputElement | null>(null)
-  const [view, setView] = useState<'profile' | 'login'>('profile')
+  const [view, setView] = useState<'profile' | 'login'>(session ? 'profile' : 'login')
   const [guestName, setGuestName] = useState('')
+
+  useEffect(() => {
+    setView(session ? 'profile' : 'login')
+  }, [session])
 
   const setField = (key: Exclude<keyof Profile, 'avatar'>, value: string) => {
     onProfileChange({ ...profile, [key]: value })
@@ -113,7 +117,7 @@ export default function ProfilePanel({ profile, session, onProfileChange, onSess
     <div className="settings-overlay" onClick={onClose}>
       <div className="settings profile" role="dialog" aria-modal="true" aria-label="Profil" onClick={e => e.stopPropagation()}>
         <div className="settings-hd">
-          {view === 'login' ? (
+          {view === 'login' && session ? (
             <button className="profile-back" onClick={() => setView('profile')} aria-label="Kembali ke profil">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5" /><path d="M12 19l-7-7 7-7" /></svg>
             </button>
