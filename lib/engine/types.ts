@@ -47,6 +47,12 @@ export interface RateLimitInfo {
 export interface EngineMeta {
   rateLimit?: RateLimitInfo
   jailbreak?: unknown
+  collaboration?: {
+    research: boolean
+    thinking: boolean
+    creative: boolean
+    agents: string[]
+  }
 }
 
 export interface EngineResult {
