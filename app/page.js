@@ -235,7 +235,6 @@ function loadStore() {
     if (raw) {
       const parsed = JSON.parse(raw)
       if (parsed && Array.isArray(parsed.chats)) {
-        // Sanitize: clear any stuck streaming flags from persisted data
         parsed.chats = parsed.chats.map(c => ({
           ...c,
           messages: sanitizeMessages(c.messages),
@@ -399,15 +398,6 @@ function ChatMessage({ msg, isLast, loading, onEdit, onRegenerate, onRate, ratin
           )}
         </div>
       </div>
-      {msg.content && !isStreaming && (
-        <div className={`msg-copy-row ${isUser ? 'user' : 'assistant'}`}>
-          <button type="button" className={`msg-copy-btn ${copied ? 'done' : ''}`} onClick={() => onCopy(msg)} title={copied ? 'Disalin!' : 'Salin teks chat'}>
-            {copied
-              ? <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M20 6L9 17l-5-5" /></svg><span>Disalin</span></>
-              : <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg><span>Salin</span></>}
-          </button>
-        </div>
-      )}
     </div>
   )
 }
@@ -694,7 +684,6 @@ export default function Home() {
       let endpoint, fetchBody
 
       if (attach) {
-        // File upload tetap pakai /api/upload
         endpoint = '/api/upload'
         const form = new FormData()
         form.append('message', text)
@@ -703,7 +692,6 @@ export default function Home() {
         form.append('guestId', session?.guestId || '')
         fetchBody = form
       } else {
-        // SEMUA pertanyaan teks \u2192 conference (semua model berdiskusi)
         endpoint = '/api/conference'
         fetchBody = JSON.stringify({
           topic: text,
@@ -730,10 +718,8 @@ export default function Home() {
 
       let content = ''
       if (endpoint === '/api/conference') {
-        // Format hasil conference: tiap model + kesimpulan
         content = formatConferenceResult(data)
       } else {
-        // Upload result
         content = data.content || ''
       }
 
