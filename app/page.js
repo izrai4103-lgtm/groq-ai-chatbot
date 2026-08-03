@@ -1056,49 +1056,33 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* ===== MAIN ===== */}
-      <main className="main">
-        <MatrixRain />
-        {/* TOPBAR */}
-        <div className="topbar">
-          <div className="topbar-side">
-            <button className="topbar-btn" onClick={() => setSidebarOpen(o => !o)} title="Toggle sidebar">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
-            </button>
+      {/* ===== MAIN (Figma Conversation Screen) ===== */}
+      <main className="main figma-main">
+        {/* Mobile menu + token strip */}
+        <div className="figma-top">
+          <button className="topbar-btn figma-menu-btn" onClick={() => setSidebarOpen(o => !o)} title="Menu" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+          </button>
+          <div className="figma-ai-avatar" title="Zanco-Ai">
+            <span className="figma-ai-diamond" aria-hidden />
           </div>
-
-          <div className="model-picker static">
-            <div className="model-btn-static">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z" /><path d="M12 6v6l4 2" /></svg>
-              <span className="m-name">Zanco-Ai</span>
-              <TokenBadge usage={tokenUsage} now={now} />
-            </div>
+          <div className="figma-top-meta">
+            <span className="figma-top-title">Zanco-Ai</span>
+            <TokenBadge usage={tokenUsage} now={now} />
           </div>
-
-          <div className="topbar-side right">
-            <button className="topbar-btn" onClick={share} title="Bagikan">
+          <div className="figma-top-actions">
+            <button className="topbar-btn" onClick={share} title="Bagikan" type="button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" /></svg>
             </button>
             <div className="topbar-menu-wrap">
-              <button
-                className="topbar-btn"
-                title="Menu"
-                aria-haspopup="menu"
-                aria-expanded={showMenu}
-                onClick={() => setShowMenu(o => !o)}
-              >
+              <button className="topbar-btn" title="Menu" aria-haspopup="menu" aria-expanded={showMenu} onClick={() => setShowMenu(o => !o)} type="button">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></svg>
               </button>
               {showMenu && (
                 <>
                   <div className="topbar-menu-backdrop" onClick={() => setShowMenu(false)} />
                   <div className="topbar-menu" role="menu" aria-label="Menu">
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="topbar-menu-item danger"
-                      onClick={clearHistoryChat}
-                    >
+                    <button type="button" role="menuitem" className="topbar-menu-item danger" onClick={clearHistoryChat}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                         <polyline points="3 6 5 6 21 6" />
                         <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
