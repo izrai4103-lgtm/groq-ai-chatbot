@@ -269,7 +269,7 @@ textarea{font-family:var(--font)}
 }
 
 /* ===== CHAT ===== */
-.chat{flex:1;overflow-y:auto;scroll-behavior:smooth;background:transparent}
+.chat{flex:1;overflow-y:auto;background:transparent;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;will-change:scroll-position}
 .chat::-webkit-scrollbar{width:6px}
 .chat::-webkit-scrollbar-track{background:transparent}
 .chat::-webkit-scrollbar-thumb{background:transparent;border-radius:3px}
@@ -476,13 +476,16 @@ textarea{font-family:var(--font)}
 .send-btn svg{pointer-events:none;display:block;transition:transform .3s}
 /* ===== SCROLL BOTTOM ===== */
 .scroll-btm{
-  position:fixed;bottom:112px;left:50%;transform:translateX(-50%);width:34px;height:34px;
+  position:fixed;bottom:112px;left:50%;transform:translateX(-50%) translateY(8px);width:34px;height:34px;
   border-radius:50%;border:1px solid rgba(255,255,255,.1);background:var(--bg-input);color:var(--text-sec);
-  display:flex;align-items:center;justify-content:center;transition:.2s;opacity:0;pointer-events:none;
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .25s cubic-bezier(.4,0,.2,1),transform .25s cubic-bezier(.4,0,.2,1),background .15s,color .15s;
+  opacity:0;pointer-events:none;
   box-shadow:0 4px 14px rgba(0,0,0,.4);z-index:10
 }
-.scroll-btm.show{opacity:1;pointer-events:auto}
+.scroll-btm.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
 .scroll-btm:hover{background:var(--bg-hover);color:var(--text)}
+.scroll-btm:active{transform:translateX(-50%) scale(.92)}
 
 /* ===== MESSAGE ANIMATION (UX: fade/slide natural) ===== */
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -1003,7 +1006,7 @@ html,body{background:#F1F5F9!important;color:#0F172A}
 /* Chat white card */
 .chat{
   flex:1;overflow-y:auto;background:#fff!important;border-radius:10px;
-  box-shadow:0 20px 56px rgba(0,0,0,.04);scroll-behavior:smooth
+  box-shadow:0 20px 56px rgba(0,0,0,.04);overscroll-behavior:contain;-webkit-overflow-scrolling:touch;will-change:scroll-position
 }
 .chat-inner{
   max-width:100%!important;margin:0!important;

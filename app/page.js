@@ -163,7 +163,7 @@ function TokenBadge({ usage, now }) {
     resetInSec != null ? `Reset dalam ${formatReset(resetInSec)}` : null,
     shared ? `Pool riset: ${formatTokens(shared.remaining)}/${formatTokens(shared.limit)} (${shared.urgency || 'ok'})` : null,
     shared?.burnPerSec > 0 ? `Burn ~${shared.burnPerSec}/dtk` : null,
-  ].filter(Boolean).join(' · ')
+  ].filter(Boolean).join(' \u00b7 ')
 
   return (
     <span className={`m-tokens urg-${urgency}`} title={title} role="status" aria-live="polite">
@@ -557,6 +557,8 @@ export default function Home() {
   const toastTimer = useRef(null)
   const copiedTimer = useRef(null)
   const attachFilesRef = useRef(new Map())
+  const scrollRAF = useRef(null)
+  const userScrolledUpRef = useRef(false)
 
   /* ===== PERSIST (JS: simpan chats + status arsip) ===== */
   useEffect(() => {
@@ -737,20 +739,52 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, activeId, chatTitle])
 
-  /* ===== SCROLL ===== */
+  /* ===== SCROLL (WhatsApp/IG-level smooth) ===== */
   const scrollDown = useCallback((smooth = true) => {
-    chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
+    userScrolledUpRef.current = false
+    const el = chatRef.current
+    if (!el) return
+    cancelAnimationFrame(scrollRAF.current)
+    if (smooth) {
+      const start = el.scrollTop
+      const target = el.scrollHeight - el.clientHeight
+      const distance = target - start
+      if (distance <= 1) { el.scrollTop = target; return }
+      const duration = Math.min(380, Math.max(120, Math.sqrt(distance) * 12))
+      let t0 = null
+      const step = (ts) => {
+        if (!t0) t0 = ts
+        const p = Math.min((ts - t0) / duration, 1)
+        const ease = 1 - Math.pow(1 - p, 3)
+        el.scrollTop = start + distance * ease
+        if (p < 1) scrollRAF.current = requestAnimationFrame(step)
+      }
+      scrollRAF.current = requestAnimationFrame(step)
+    } else {
+      el.scrollTop = el.scrollHeight
+    }
   }, [])
 
   const autoScroll = useCallback((smooth = true) => {
+    if (userScrolledUpRef.current) return
     const el = chatRef.current
     if (!el) return
     const dist = el.scrollHeight - el.scrollTop - el.clientHeight
-    if (dist < 160) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
-  }, [])
+    if (dist < 300) {
+      cancelAnimationFrame(scrollRAF.current)
+      if (smooth) {
+        scrollDown(true)
+      } else {
+        scrollRAF.current = requestAnimationFrame(() => {
+          if (el) el.scrollTop = el.scrollHeight
+        })
+      }
+    }
+  }, [scrollDown])
 
   useEffect(() => { autoScroll() }, [messages, autoScroll])
   useEffect(() => { if (!loading) taRef.current?.focus() }, [loading])
+  useEffect(() => { return () => cancelAnimationFrame(scrollRAF.current) }, [])
 
   const showToast = useCallback((msg) => {
     setToast(msg)
@@ -758,12 +792,16 @@ export default function Home() {
     toastTimer.current = setTimeout(() => setToast(''), 2200)
   }, [])
 
-
-
   const handleScroll = useCallback(() => {
     if (!chatRef.current) return
     const { scrollTop, scrollHeight, clientHeight } = chatRef.current
-    setShowScroll(scrollHeight - scrollTop - clientHeight > 300)
+    const dist = scrollHeight - scrollTop - clientHeight
+    setShowScroll(dist > 300)
+    if (dist > 300) {
+      userScrolledUpRef.current = true
+    } else if (dist < 10) {
+      userScrolledUpRef.current = false
+    }
   }, [])
 
   /* ===== ESCAPE: tutup sidebar ===== */
@@ -946,8 +984,10 @@ export default function Home() {
     setInput('')
     setFile(null)
     if (!messages.some(m => m.role === 'user')) setChatTitle(truncate(text || attach?.name, 40))
+    userScrolledUpRef.current = false
+    setTimeout(() => scrollDown(true), 50)
     send(all, text, attach)
-  }, [input, loading, messages, activeId, send, file])
+  }, [input, loading, messages, activeId, send, file, scrollDown])
 
   const stopGeneration = useCallback(() => {
     abortRef.current?.abort()
@@ -961,6 +1001,7 @@ export default function Home() {
     if (!lastUser) return
     setError('')
     const retryFile = attachFilesRef.current.get(lastUser.id)
+    userScrolledUpRef.current = false
     send(messages, lastUser.content, retryFile ? { ...lastUser.attachment, file: retryFile } : null)
   }, [loading, messages, send])
 
