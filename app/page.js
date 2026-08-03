@@ -271,13 +271,6 @@ function StreamingText({ text, onTick, onDone }) {
   return <div className="msg-txt"><Markdown text={text.slice(0, n)} /></div>
 }
 
-function fallbackCopy(text) {
-  try {
-    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'
-    document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); document.body.removeChild(ta); return ok
-  } catch (e) { return false }
-}
-
 function readImageBitmap(file) {
   if ('createImageBitmap' in window) return createImageBitmap(file)
   return new Promise((resolve, reject) => {
@@ -331,7 +324,7 @@ function formatConferenceResult(data) {
 }
 
 /* ===== MESSAGE ===== */
-function ChatMessage({ msg, isLast, loading, onEdit, onRegenerate, onRate, rating, onCopy, copied, onStreamDone, onStreamTick }) {
+function ChatMessage({ msg, isLast, loading, onEdit, onRegenerate, onRate, rating, onStreamDone, onStreamTick }) {
   if (msg.role === 'system') return null
   const isUser = msg.role === 'user'
   const isStreaming = Boolean(msg.streaming)
@@ -371,11 +364,6 @@ function ChatMessage({ msg, isLast, loading, onEdit, onRegenerate, onRate, ratin
                 </button>
               ) : (
                 <>
-                  <button className={`act-btn ${copied ? 'copy-done' : ''}`} title="Salin" onClick={() => onCopy(msg)}>
-                    {copied
-                      ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 6L9 17l-5-5" /></svg>
-                      : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>}
-                  </button>
                   <button className={`act-btn ${rating === 'up' ? 'rated' : ''}`} title="Suka" onClick={() => onRate(msg, 'up')}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 10v12" /><path d="M15 5.88L14 10h5.83a2 2 0 011.92 2.56l-2.33 8A2 2 0 0115.5 22H8a2 2 0 01-2-2v-8a2 2 0 011-1.73l7-4a2 2 0 012.12.26l-1.12 1.35z" /></svg>
                   </button>
@@ -454,7 +442,6 @@ export default function Home() {
   const [showArchive, setShowArchive] = useState(false)
   const [file, setFile] = useState(null)
   const [ratings, setRatings] = useState({})
-  const [copiedId, setCopiedId] = useState(null)
   const [toast, setToast] = useState('')
   const [historyQuery, setHistoryQuery] = useState('')
   const [animPref, setAnimPref] = useState(loadAnimPref)
@@ -471,7 +458,6 @@ export default function Home() {
   const fileRef = useRef(null)
   const abortRef = useRef(null)
   const toastTimer = useRef(null)
-  const copiedTimer = useRef(null)
   const attachFilesRef = useRef(new Map())
   const scrollRAF = useRef(null)
   const userScrolledUpRef = useRef(false)
@@ -799,15 +785,6 @@ export default function Home() {
     showToast(next === null ? 'Penilaian dihapus' : next === 'up' ? 'Terima kasih! \ud83d\udc4d' : 'Terima kasih atas masukannya \ud83d\udc4e')
   }, [ratings, showToast])
 
-  const copy = useCallback((msg) => {
-    const done = () => {
-      setCopiedId(msg.id); showToast('Pesan disalin!')
-      clearTimeout(copiedTimer.current); copiedTimer.current = setTimeout(() => setCopiedId(null), 2000)
-    }
-    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(msg.content).then(done).catch(() => { if (fallbackCopy(msg.content)) done() })
-    else if (fallbackCopy(msg.content)) done()
-  }, [showToast])
-
   const finishStream = useCallback((id) => { setMessages(prev => prev.map(m => m.id === id ? { ...m, streaming: false } : m)) }, [])
 
   const newChat = useCallback(() => {
@@ -1008,7 +985,7 @@ export default function Home() {
             {messages.map((msg, i) => (
               <ChatMessage key={msg.id} msg={msg} isLast={i === messages.length - 1} loading={loading}
                 onEdit={editMessage} onRegenerate={regenerate} onRate={rate} rating={ratings[msg.id]}
-                onCopy={copy} copied={copiedId === msg.id} onStreamDone={finishStream} onStreamTick={() => autoScroll(false)} />
+                onStreamDone={finishStream} onStreamTick={() => autoScroll(false)} />
             ))}
             {loading && <TypingIndicator />}
             {error && (
