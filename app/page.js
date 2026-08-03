@@ -800,6 +800,26 @@ export default function Home() {
     showToast('Chat dihapus')
   }, [activeId, showToast])
 
+  /** Hapus seluruh riwayat chat (aktif + arsip) */
+  const clearHistoryChat = useCallback(() => {
+    abortRef.current?.abort()
+    setLoading(false)
+    setChats([])
+    setActiveId(null)
+    setMessages([])
+    setChatTitle('Zanco-Ai')
+    setError('')
+    setInput('')
+    setFile(null)
+    setRatings({})
+    setWebSearch(false)
+    setShowArchive(false)
+    setShowSettings(false)
+    try { localStorage.removeItem(STORAGE_KEY) } catch (e) { /* ignore */ }
+    showToast('Riwayat chat dihapus')
+    taRef.current?.focus()
+  }, [showToast])
+
   /* ===== FILE / SHARE ===== */
   const handleFile = useCallback(async (e) => {
     const f = e.target.files?.[0]
@@ -960,9 +980,38 @@ export default function Home() {
             <button className="topbar-btn" onClick={share} title="Bagikan">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" /></svg>
             </button>
-            <button className="topbar-btn" title="Setelan" onClick={() => setShowSettings(true)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></svg>
-            </button>
+            <div className="topbar-menu-wrap">
+              <button
+                className="topbar-btn"
+                title="Menu"
+                aria-haspopup="menu"
+                aria-expanded={showSettings}
+                onClick={() => setShowSettings(o => !o)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+              </button>
+              {showSettings && (
+                <>
+                  <div className="topbar-menu-backdrop" onClick={() => setShowSettings(false)} />
+                  <div className="topbar-menu" role="menu" aria-label="Menu">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="topbar-menu-item danger"
+                      onClick={clearHistoryChat}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                        <path d="M10 11v6M14 11v6" />
+                        <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+                      </svg>
+                      Clear history chat
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1059,39 +1108,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* SETTINGS */}
-        {showSettings && (
-          <div className="settings-overlay" onClick={() => setShowSettings(false)}>
-            <div className="settings" role="dialog" aria-modal="true" aria-label="Setelan" onClick={e => e.stopPropagation()}>
-              <div className="settings-hd">
-                <h3>Setelan</h3>
-                <button className="settings-close" onClick={() => setShowSettings(false)} aria-label="Tutup setelan">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
-                </button>
-              </div>
-              <div className="setting-row">
-                <div>
-                  <div className="setting-nm">Animasi halus</div>
-                  <div className="setting-ds">Fade lembut, micro-interaction & jeda respons alami.</div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={animPref === 'on'}
-                  aria-label="Animasi halus"
-                  className={`switch ${animPref === 'on' ? 'on' : ''}`}
-                  onClick={() => {
-                    const next = animPref === 'on' ? 'off' : 'on'
-                    logUX('anim_toggle', next)
-                    setAnimPref(next)
-                  }}
-                >
-                  <span className="switch-knob" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* PROFIL */}
         {showProfile && (

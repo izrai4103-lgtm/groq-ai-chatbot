@@ -119,6 +119,23 @@ textarea{font-family:var(--font)}
 }
 .topbar-btn:hover{background:var(--bg-hover);color:var(--text)}
 .topbar-btn svg{width:18px;height:18px}
+.topbar-menu-wrap{position:relative}
+.topbar-menu-backdrop{position:fixed;inset:0;z-index:80}
+.topbar-menu{
+  position:absolute;top:calc(100% + 6px);right:0;z-index:90;
+  min-width:200px;padding:6px;border-radius:12px;
+  background:var(--bg-elev, #1a1a1a);border:1px solid rgba(255,255,255,.1);
+  box-shadow:0 12px 32px rgba(0,0,0,.45);animation:menuIn .15s ease
+}
+@keyframes menuIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.topbar-menu-item{
+  display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:0;border-radius:8px;
+  background:transparent;color:var(--text,#eee);font-size:13px;font-weight:600;cursor:pointer;text-align:left
+}
+.topbar-menu-item:hover{background:rgba(255,255,255,.08)}
+.topbar-menu-item svg{width:16px;height:16px;flex-shrink:0}
+.topbar-menu-item.danger{color:#ff6b6b}
+.topbar-menu-item.danger:hover{background:rgba(255,107,107,.12)}
 
 .model-picker{position:relative}
 .model-btn-static{
