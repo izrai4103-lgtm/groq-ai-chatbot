@@ -390,15 +390,19 @@ function ChatMessage({
 
 /* ===== TYPING (loader) ===== */
 function TypingIndicator() {
-  const label = 'Mengetik…'
   return (
     <div className="msg assistant">
       <div className="msg-row">
         <div className="msg-av"><div className="av assistant"><img src="/ai-avatar.png" alt="AI" className="av-img" /></div></div>
         <div className="msg-c">
-          <div className="typing chat">
-            <span className="typ-dot"><span></span><span></span><span></span></span>
-            <span className="typ-label">{label}</span>
+          <div className="typing chat typing-orbit" aria-label="Mengetik">
+            <div className="typ-orbit" role="status">
+              <span className="typ-orbit-dot" /><span className="typ-orbit-dot" />
+              <span className="typ-orbit-dot" /><span className="typ-orbit-dot" />
+              <span className="typ-orbit-dot" /><span className="typ-orbit-dot" />
+              <span className="typ-orbit-dot" /><span className="typ-orbit-dot" />
+            </div>
+            <span className="typ-label">Mengetik…</span>
           </div>
         </div>
       </div>
