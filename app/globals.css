@@ -277,9 +277,9 @@ textarea{font-family:var(--font)}
 .chat-inner{max-width:var(--w);margin:0 auto;padding:0 0 32px}
 
 /* ===== MESSAGES ===== */
-.msg{padding:16px 20px}
-.msg.user{background:rgba(30,30,30,.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-.msg.assistant{background:rgba(15,15,15,.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.msg{padding:16px 20px;background:transparent}
+.msg.user{background:#F8FAFC;border-radius:12px;margin:8px 12px}
+.msg.assistant{background:transparent}
 .msg-row{max-width:var(--w);margin:0 auto;display:flex;gap:16px;align-items:flex-start}
 .msg-av{width:30px;flex-shrink:0;display:flex;justify-content:center}
 .av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;font-weight:600}
@@ -1056,3 +1056,23 @@ html,body{background:#F1F5F9!important;color:#0F172A}
   .sidebar-overlay{z-index:60!important;background:rgba(15,23,42,.28)!important}
   .sidebar.closed{margin-left:-100%!important;pointer-events:none}
 }
+
+
+/* MSG LIGHT FIX — Figma light bubbles */
+.msg{background:transparent!important}
+.msg.user{
+  background:#EBF4FF!important;border-radius:14px!important;margin:6px 8px!important;
+  border:1px solid rgba(69,154,255,.12)
+}
+.msg.assistant{background:transparent!important}
+.msg-txt{color:#334155!important}
+.msg.user .msg-txt{color:#0F172A!important}
+.msg-txt h1,.msg-txt h2,.msg-txt h3{color:#0F172A!important}
+.msg-txt code{background:#F1F5F9!important;border-color:#E2E8F0!important;color:#334155!important}
+.msg-txt pre{background:#F8FAFC!important;border:1px solid #E2E8F0!important;border-radius:10px;padding:12px}
+.msg-file{background:#F8FAFC!important;border:1px solid #E2E8F0!important}
+.msg-acts .act-btn{color:#64748B!important}
+.msg-acts .act-btn:hover{background:#EBF4FF!important;color:#02489B!important}
+.av.user{background:#5436DA!important;color:#fff!important}
+.msg-status{color:#94A3B8}
+.msg-status.read{color:#19c37d}
