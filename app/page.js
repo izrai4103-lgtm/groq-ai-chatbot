@@ -739,50 +739,85 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, activeId, chatTitle])
 
-  /* ===== SCROLL (WhatsApp/IG-level smooth) ===== */
+  /* ===== SCROLL — Instagram-style (momentum + pin bottom + spring) ===== */
+  const isNearBottom = useCallback((threshold = 120) => {
+    const el = chatRef.current
+    if (!el) return true
+    return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold
+  }, [])
+
   const scrollDown = useCallback((smooth = true) => {
     userScrolledUpRef.current = false
     const el = chatRef.current
     if (!el) return
     cancelAnimationFrame(scrollRAF.current)
-    if (smooth) {
-      const start = el.scrollTop
-      const target = el.scrollHeight - el.clientHeight
-      const distance = target - start
-      if (distance <= 1) { el.scrollTop = target; return }
-      const duration = Math.min(380, Math.max(120, Math.sqrt(distance) * 12))
-      let t0 = null
-      const step = (ts) => {
-        if (!t0) t0 = ts
-        const p = Math.min((ts - t0) / duration, 1)
-        const ease = 1 - Math.pow(1 - p, 3)
-        el.scrollTop = start + distance * ease
-        if (p < 1) scrollRAF.current = requestAnimationFrame(step)
-      }
-      scrollRAF.current = requestAnimationFrame(step)
-    } else {
-      el.scrollTop = el.scrollHeight
+
+    const target = () => Math.max(0, el.scrollHeight - el.clientHeight)
+
+    if (!smooth) {
+      el.scrollTop = target()
+      return
     }
+
+    // Spring-ish easeOutQuint — terasa seperti IG
+    const start = el.scrollTop
+    const end = target()
+    const distance = end - start
+    if (Math.abs(distance) < 1) {
+      el.scrollTop = end
+      return
+    }
+    // Jarak jauh → sedikit lebih lama, tetap snappy
+    const duration = Math.min(520, Math.max(180, 140 + Math.sqrt(Math.abs(distance)) * 14))
+    let t0 = null
+    const step = (ts) => {
+      if (t0 == null) t0 = ts
+      const p = Math.min((ts - t0) / duration, 1)
+      // easeOutQuint
+      const ease = 1 - Math.pow(1 - p, 5)
+      // Re-read target tiap frame (konten streaming bisa bertambah)
+      const liveEnd = target()
+      el.scrollTop = start + (liveEnd - start) * ease
+      if (p < 1) {
+        scrollRAF.current = requestAnimationFrame(step)
+      } else {
+        el.scrollTop = target()
+      }
+    }
+    scrollRAF.current = requestAnimationFrame(step)
   }, [])
 
   const autoScroll = useCallback((smooth = true) => {
     if (userScrolledUpRef.current) return
     const el = chatRef.current
     if (!el) return
-    const dist = el.scrollHeight - el.scrollTop - el.clientHeight
-    if (dist < 300) {
-      cancelAnimationFrame(scrollRAF.current)
-      if (smooth) {
-        scrollDown(true)
-      } else {
-        scrollRAF.current = requestAnimationFrame(() => {
-          if (el) el.scrollTop = el.scrollHeight
-        })
-      }
+    // IG: kalau user dekat bawah, selalu ikut konten baru
+    if (!isNearBottom(180) && !loading) return
+    cancelAnimationFrame(scrollRAF.current)
+    if (smooth) {
+      scrollDown(true)
+    } else {
+      // Streaming: pin langsung biar tidak lag
+      scrollRAF.current = requestAnimationFrame(() => {
+        if (el && !userScrolledUpRef.current) {
+          el.scrollTop = el.scrollHeight
+        }
+      })
     }
-  }, [scrollDown])
+  }, [scrollDown, isNearBottom, loading])
 
-  useEffect(() => { autoScroll() }, [messages, autoScroll])
+  useEffect(() => { autoScroll(true) }, [messages, autoScroll])
+  // Saat loading/typing, pin ke bawah seperti IG
+  useEffect(() => {
+    if (!loading) return
+    if (userScrolledUpRef.current) return
+    const id = setInterval(() => {
+      const el = chatRef.current
+      if (!el || userScrolledUpRef.current) return
+      el.scrollTop = el.scrollHeight
+    }, 100)
+    return () => clearInterval(id)
+  }, [loading])
   useEffect(() => { if (!loading) taRef.current?.focus() }, [loading])
   useEffect(() => { return () => cancelAnimationFrame(scrollRAF.current) }, [])
 
@@ -793,13 +828,14 @@ export default function Home() {
   }, [])
 
   const handleScroll = useCallback(() => {
-    if (!chatRef.current) return
-    const { scrollTop, scrollHeight, clientHeight } = chatRef.current
-    const dist = scrollHeight - scrollTop - clientHeight
-    setShowScroll(dist > 300)
-    if (dist > 300) {
+    const el = chatRef.current
+    if (!el) return
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight
+    // IG threshold: tombol "baru" muncul kalau scroll naik cukup jauh
+    setShowScroll(dist > 140)
+    if (dist > 140) {
       userScrolledUpRef.current = true
-    } else if (dist < 10) {
+    } else if (dist < 24) {
       userScrolledUpRef.current = false
     }
   }, [])
