@@ -277,10 +277,10 @@ textarea{font-family:var(--font)}
 .chat-inner{max-width:var(--w);margin:0 auto;padding:0 0 32px}
 
 /* ===== MESSAGES ===== */
-.msg{padding:16px 20px;background:transparent}
-.msg.user{background:#F8FAFC;border-radius:12px;margin:8px 12px}
-.msg.assistant{background:transparent}
-.msg-row{max-width:var(--w);margin:0 auto;display:flex;gap:16px;align-items:flex-start}
+.msg{padding:6px 12px;background:transparent!important}
+.msg.user{background:transparent!important}
+.msg.assistant{background:transparent!important}
+.msg-row{max-width:min(var(--w), 100%);margin:0;display:flex;gap:10px;align-items:flex-end}
 .msg-av{width:30px;flex-shrink:0;display:flex;justify-content:center}
 .av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;font-weight:600}
 .av.user{background:#5436da;color:#fff;font-size:14px}
@@ -989,16 +989,10 @@ html,body{background:#F1F5F9!important;color:#0F172A}
   box-shadow:0 20px 56px rgba(0,0,0,.04);scroll-behavior:smooth
 }
 .chat-inner{
-  max-width:100%!important;margin:0!important;padding:28px 40px 40px!important;
+  max-width:100%!important;margin:0!important;
   background:transparent!important;box-shadow:none!important;min-height:auto!important
 }
-.msg.user .msg-bubble{
-  background:#EBF4FF!important;color:#334155!important;border-radius:16px!important
-}
-.msg-txt,.msg.assistant .msg-bubble{color:#475569!important;font-size:16px;line-height:1.55}
-.msg-txt h1,.msg-txt h2,.msg-txt h3{color:#0F172A!important;font-weight:700}
-.msg-txt a{color:#459AFF}
-.msg-txt strong{color:#51A1FF}
+/* msg colors controlled by WhatsApp bubble block below */
 
 /* Composer bar — Figma type field */
 .composer-area{
@@ -1058,21 +1052,96 @@ html,body{background:#F1F5F9!important;color:#0F172A}
 }
 
 
-/* MSG LIGHT FIX — Figma light bubbles */
-.msg{background:transparent!important}
-.msg.user{
-  background:#EBF4FF!important;border-radius:14px!important;margin:6px 8px!important;
-  border:1px solid rgba(69,154,255,.12)
+
+
+/* =========================================================
+   WhatsApp-style chat bubbles (user gray | AI purple)
+   ========================================================= */
+.chat-inner{
+  display:flex;flex-direction:column;gap:4px;
+  padding:16px 14px 24px!important;
 }
-.msg.assistant{background:transparent!important}
-.msg-txt{color:#334155!important}
-.msg.user .msg-txt{color:#0F172A!important}
-.msg-txt h1,.msg-txt h2,.msg-txt h3{color:#0F172A!important}
-.msg-txt code{background:#F1F5F9!important;border-color:#E2E8F0!important;color:#334155!important}
-.msg-txt pre{background:#F8FAFC!important;border:1px solid #E2E8F0!important;border-radius:10px;padding:12px}
-.msg-file{background:#F8FAFC!important;border:1px solid #E2E8F0!important}
-.msg-acts .act-btn{color:#64748B!important}
-.msg-acts .act-btn:hover{background:#EBF4FF!important;color:#02489B!important}
-.av.user{background:#5436DA!important;color:#fff!important}
-.msg-status{color:#94A3B8}
-.msg-status.read{color:#19c37d}
+.msg{width:100%;display:flex;background:transparent!important;padding:4px 0!important;margin:0!important;border:none!important}
+.msg.user{justify-content:flex-end}
+.msg.assistant{justify-content:flex-start}
+
+.msg.user .msg-row{
+  flex-direction:row-reverse;
+  max-width:min(82%, 520px);
+  margin-left:auto;margin-right:0;width:fit-content
+}
+.msg.assistant .msg-row{
+  flex-direction:row;
+  max-width:min(88%, 560px);
+  margin-right:auto;margin-left:0;width:fit-content
+}
+
+.msg-av{width:28px;flex-shrink:0;display:flex;align-items:flex-end;padding-bottom:2px}
+.av{width:28px;height:28px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.av.user{background:#9CA3AF;color:#fff}
+.av.assistant{background:#EDE9FE;padding:0}
+.av-img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+
+/* Bubble body */
+.msg-c{
+  flex:0 1 auto;min-width:0;padding:8px 12px 6px!important;
+  position:relative;box-shadow:0 1px 1px rgba(0,0,0,.06)
+}
+.msg.user .msg-c{
+  background:#E5E7EB!important; /* abu-abu WhatsApp-like */
+  color:#111827!important;
+  border-radius:14px 14px 4px 14px!important;
+}
+.msg.assistant .msg-c{
+  background:linear-gradient(145deg,#7C6BFF 0%,#5B4CDB 100%)!important; /* ungu */
+  color:#fff!important;
+  border-radius:14px 14px 14px 4px!important;
+}
+
+.msg-txt{
+  font-size:14.5px!important;line-height:1.45!important;
+  white-space:pre-wrap;word-wrap:break-word
+}
+.msg.user .msg-txt{color:#111827!important}
+.msg.assistant .msg-txt{color:#fff!important}
+.msg.assistant .msg-txt a{color:#E0D9FF!important;text-decoration:underline}
+.msg.assistant .msg-txt code{
+  background:rgba(0,0,0,.2)!important;border-color:transparent!important;color:#F5F3FF!important
+}
+.msg.assistant .msg-txt pre{
+  background:rgba(0,0,0,.18)!important;border:none!important;color:#F5F3FF!important
+}
+.msg.assistant .msg-txt strong{color:#fff!important}
+.msg.assistant .msg-txt h1,
+.msg.assistant .msg-txt h2,
+.msg.assistant .msg-txt h3{color:#fff!important}
+
+.msg.user .msg-txt code{background:#D1D5DB!important;border-color:transparent!important;color:#111!important}
+
+.msg-file{background:rgba(0,0,0,.06)!important;border:none!important;border-radius:8px;margin-bottom:6px}
+.msg.assistant .msg-file{background:rgba(255,255,255,.12)!important}
+.msg.assistant .msg-file-nm{color:rgba(255,255,255,.9)!important}
+
+.msg-acts{margin-top:4px;opacity:0}
+.msg:hover .msg-acts,.msg-acts.force{opacity:1}
+.msg.user .act-btn{color:#6B7280!important}
+.msg.assistant .act-btn{color:rgba(255,255,255,.85)!important}
+.msg.assistant .act-btn:hover{background:rgba(255,255,255,.15)!important;color:#fff!important}
+.msg.user .act-btn:hover{background:rgba(0,0,0,.06)!important;color:#111!important}
+
+.msg-meta{margin-top:2px}
+.msg-status{font-size:11px;color:#9CA3AF}
+.msg-status.read{color:#53BDEB}
+
+/* Typing bubble follows AI style */
+.msg.assistant .typing.chat{
+  background:transparent;color:#fff;padding:2px 0
+}
+.msg.assistant .typ-label{color:rgba(255,255,255,.9)}
+.msg.assistant .typ-dot span{background:#fff}
+
+@media(max-width:480px){
+  .msg.user .msg-row,.msg.assistant .msg-row{max-width:92%}
+  .msg-av{width:24px}
+  .av{width:24px;height:24px;font-size:11px}
+}
