@@ -353,6 +353,7 @@ export default function Home() {
   const [historyQuery, setHistoryQuery] = useState('')
   const [animPref, setAnimPref] = useState(loadAnimPref)
   const [showSettings, setShowSettings] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [profile, setProfile] = useState(loadProfile)
   const [session, setSession] = useState(loadSession)
@@ -814,7 +815,7 @@ export default function Home() {
     setRatings({})
     setWebSearch(false)
     setShowArchive(false)
-    setShowSettings(false)
+    setShowMenu(false)
     try { localStorage.removeItem(STORAGE_KEY) } catch (e) { /* ignore */ }
     showToast('Riwayat chat dihapus')
     taRef.current?.focus()
@@ -985,14 +986,14 @@ export default function Home() {
                 className="topbar-btn"
                 title="Menu"
                 aria-haspopup="menu"
-                aria-expanded={showSettings}
-                onClick={() => setShowSettings(o => !o)}
+                aria-expanded={showMenu}
+                onClick={() => setShowMenu(o => !o)}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></svg>
               </button>
-              {showSettings && (
+              {showMenu && (
                 <>
-                  <div className="topbar-menu-backdrop" onClick={() => setShowSettings(false)} />
+                  <div className="topbar-menu-backdrop" onClick={() => setShowMenu(false)} />
                   <div className="topbar-menu" role="menu" aria-label="Menu">
                     <button
                       type="button"
@@ -1108,6 +1109,28 @@ export default function Home() {
           </div>
         </div>
 
+
+        {/* SETTINGS — info pembuat AI saja */}
+        {showSettings && (
+          <div className="settings-overlay" onClick={() => setShowSettings(false)}>
+            <div className="settings" role="dialog" aria-modal="true" aria-label="Setelan" onClick={e => e.stopPropagation()}>
+              <div className="settings-hd">
+                <h3>Setelan</h3>
+                <button className="settings-close" onClick={() => setShowSettings(false)} aria-label="Tutup setelan">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="settings-about">
+                <div className="settings-about-ic" aria-hidden>✨</div>
+                <p className="settings-about-tx">
+                  AI ini dibuat oleh developer tunggal
+                  <br />
+                  <strong>~Andmute🎉</strong>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* PROFIL */}
         {showProfile && (

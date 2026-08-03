@@ -458,6 +458,17 @@ textarea{font-family:var(--font)}
 }
 .settings-close:hover{background:var(--bg-hover);color:var(--text)}
 .settings-close svg{width:15px;height:15px}
+.settings-about{
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  gap:12px;padding:20px 12px 8px
+}
+.settings-about-ic{font-size:28px;line-height:1}
+.settings-about-tx{
+  margin:0;font-size:14px;line-height:1.55;color:var(--text-sec,#aaa);font-weight:500
+}
+.settings-about-tx strong{
+  display:inline-block;margin-top:8px;font-size:16px;color:var(--text,#fff);font-weight:700
+}
 .setting-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-top:1px solid var(--border)}
 .setting-nm{font-size:13px;font-weight:500;margin-bottom:2px}
 .setting-ds{font-size:11px;color:var(--text-muted);line-height:1.5}
