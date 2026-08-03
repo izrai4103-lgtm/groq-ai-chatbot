@@ -27,6 +27,105 @@ const formatReset = (s) => {
   const r = sec % 60
   return `${m}:${String(r).padStart(2, '0')}`
 }
+
+/* ===== REAL-TIME TOKEN ENGINE (client-side source of truth for UI) ===== */
+const TOKEN_LS_KEY = 'zanco_token_rt_v1'
+const TOKEN_WINDOW_MS = 60_000
+const TOKEN_QUOTA_GUEST = 10000
+const TOKEN_QUOTA_LOGIN = 20000
+
+function tokenWindowEnd(now = Date.now()) {
+  return Math.ceil((now + 1) / TOKEN_WINDOW_MS) * TOKEN_WINDOW_MS
+}
+
+function urgencyFrom(remaining, quota) {
+  if (remaining <= 0) return 'empty'
+  const pct = quota > 0 ? remaining / quota : 1
+  if (pct <= 0.1) return 'critical'
+  if (pct <= 0.25) return 'low'
+  if (pct <= 0.5) return 'mid'
+  return 'ok'
+}
+
+function normalizeTokenUser(u, now = Date.now()) {
+  const quota = Number(u?.quota) > 0 ? Number(u.quota) : TOKEN_QUOTA_GUEST
+  let resetAt = Number(u?.resetAt)
+  if (!Number.isFinite(resetAt) || resetAt <= 0) resetAt = tokenWindowEnd(now)
+  let used = Math.max(0, Number(u?.used) || 0)
+  // Window sudah lewat → isi ulang penuh (real-time lokal)
+  if (now >= resetAt) {
+    used = 0
+    resetAt = tokenWindowEnd(now)
+  }
+  const remaining = Math.max(0, quota - used)
+  const pct = quota > 0 ? remaining / quota : 1
+  return {
+    isLoggedIn: Boolean(u?.isLoggedIn),
+    quota,
+    used,
+    remaining,
+    resetAt,
+    serverNow: Number(u?.serverNow) || now,
+    pct: Math.round(pct * 1000) / 1000,
+    urgency: urgencyFrom(remaining, quota),
+  }
+}
+
+function loadLocalTokenUser(isLoggedIn) {
+  try {
+    const raw = localStorage.getItem(TOKEN_LS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return null
+    return normalizeTokenUser({
+      ...parsed,
+      isLoggedIn,
+      quota: isLoggedIn ? TOKEN_QUOTA_LOGIN : TOKEN_QUOTA_GUEST,
+    })
+  } catch (e) {
+    return null
+  }
+}
+
+function saveLocalTokenUser(user) {
+  try {
+    if (!user) return
+    localStorage.setItem(TOKEN_LS_KEY, JSON.stringify({
+      used: user.used,
+      resetAt: user.resetAt,
+      quota: user.quota,
+      isLoggedIn: user.isLoggedIn,
+      updatedAt: Date.now(),
+    }))
+  } catch (e) { /* ignore */ }
+}
+
+/** Gabung state: dipakai used tertinggi dalam window yang sama (anti-rollback). */
+function mergeTokenUser(local, remote, now = Date.now()) {
+  const isLoggedIn = Boolean(remote?.isLoggedIn ?? local?.isLoggedIn)
+  const quota = isLoggedIn ? TOKEN_QUOTA_LOGIN : TOKEN_QUOTA_GUEST
+  const a = local ? normalizeTokenUser({ ...local, isLoggedIn, quota }, now) : null
+  const b = remote ? normalizeTokenUser({ ...remote, isLoggedIn, quota }, now) : null
+  if (!a && !b) {
+    return normalizeTokenUser({ isLoggedIn, quota, used: 0, resetAt: tokenWindowEnd(now) }, now)
+  }
+  if (!a) return b
+  if (!b) return a
+  // Window sama → ambil used terbesar (jangan naikkan sisa setelah chat)
+  if (a.resetAt === b.resetAt) {
+    const used = Math.max(a.used, b.used)
+    return normalizeTokenUser({ isLoggedIn, quota, used, resetAt: a.resetAt, serverNow: b.serverNow || a.serverNow }, now)
+  }
+  // Window berbeda → yang resetAt lebih baru (atau yang masih valid)
+  const pick = a.resetAt >= b.resetAt ? a : b
+  return normalizeTokenUser(pick, now)
+}
+
+function estimateSpend(text, file) {
+  const len = (text || '').length + (file ? 800 : 0)
+  // ~4 char/token + overhead prompt
+  return Math.max(48, Math.ceil(len / 4) + 80)
+}
 /** Ring progress SVG — sisa token visual real-time */
 function TokenRing({ pct, urgency, size = 18 }) {
   const r = 7
@@ -52,17 +151,12 @@ function TokenRing({ pct, urgency, size = 18 }) {
   )
 }
 function TokenBadge({ usage, now }) {
-  const user = usage?.user
-  if (!user) return null
-  const { remaining, quota, resetAt, serverNow, urgency: serverUrgency, pct: serverPct } = user
-  // Koreksi clock skew server↔client
-  const fetchedAt = usage._clientFetchedAt || now
-  const skewBase = typeof serverNow === 'number' ? serverNow + (now - fetchedAt) : now
-  const resetInSec = resetAt != null ? Math.max(0, (resetAt - skewBase) / 1000) : null
-  const pct = typeof serverPct === 'number' ? serverPct : (quota > 0 ? remaining / quota : 1)
-  const urgency = serverUrgency || (
-    remaining <= 0 ? 'empty' : pct <= 0.1 ? 'critical' : pct <= 0.25 ? 'low' : pct <= 0.5 ? 'mid' : 'ok'
-  )
+  const raw = usage?.user
+  if (!raw) return null
+  // Live normalize setiap tick (countdown + auto-refill window)
+  const user = normalizeTokenUser(raw, now)
+  const { remaining, quota, resetAt, urgency, pct } = user
+  const resetInSec = resetAt != null ? Math.max(0, (resetAt - now) / 1000) : null
   const shared = usage?.shared
   const title = [
     `Sisa ${Number(remaining).toLocaleString('id-ID')} / ${Number(quota).toLocaleString('id-ID')} token per menit`,
@@ -488,23 +582,39 @@ export default function Home() {
    * - Update instan dari response chat/think/upload
    * - Countdown 100ms + auto-refill saat window ganti
    */
-  const applyTokenUsage = useCallback((tokenUsage) => {
-    if (!tokenUsage || typeof tokenUsage !== 'object') return
-    setTokenUsage(prev => ({
-      ...(prev || {}),
-      user: {
-        ...(prev?.user || {}),
-        ...tokenUsage,
-        // jaga field penting selalu number
-        remaining: Number(tokenUsage.remaining ?? prev?.user?.remaining ?? 0),
-        used: Number(tokenUsage.used ?? prev?.user?.used ?? 0),
-        quota: Number(tokenUsage.quota ?? prev?.user?.quota ?? 10000),
-        resetAt: tokenUsage.resetAt ?? prev?.user?.resetAt ?? null,
-        serverNow: tokenUsage.serverNow ?? Date.now(),
-      },
-      _clientFetchedAt: Date.now(),
-    }))
+  const isLoggedInToken = Boolean(session?.guestId)
+
+  const applyTokenUsage = useCallback((remoteUser) => {
+    if (!remoteUser || typeof remoteUser !== 'object') return
+    setTokenUsage(prev => {
+      const now = Date.now()
+      const merged = mergeTokenUser(prev?.user, remoteUser, now)
+      saveLocalTokenUser(merged)
+      return {
+        ...(prev || {}),
+        user: merged,
+        shared: prev?.shared,
+        _clientFetchedAt: now,
+      }
+    })
   }, [])
+
+  /** Potong token langsung di UI (optimistik) sebelum response server. */
+  const deductLocalTokens = useCallback((tokens) => {
+    const n = Math.max(0, Math.round(Number(tokens) || 0))
+    if (n <= 0) return
+    setTokenUsage(prev => {
+      const now = Date.now()
+      const base = normalizeTokenUser(
+        prev?.user || { isLoggedIn: isLoggedInToken, quota: isLoggedInToken ? TOKEN_QUOTA_LOGIN : TOKEN_QUOTA_GUEST },
+        now,
+      )
+      const used = base.used + n
+      const next = normalizeTokenUser({ ...base, used }, now)
+      saveLocalTokenUser(next)
+      return { ...(prev || {}), user: next, _clientFetchedAt: now }
+    })
+  }, [isLoggedInToken])
 
   const pollTokenUsage = useCallback(async () => {
     if (typeof document !== 'undefined' && document.hidden) return
@@ -513,30 +623,59 @@ export default function Home() {
       const res = await fetch(`/api/token-usage?guestId=${encodeURIComponent(gid)}`, { cache: 'no-store' })
       if (!res.ok) return
       const data = await res.json()
-      setTokenUsage({ ...data, _clientFetchedAt: Date.now() })
-    } catch (e) { /* offline */ }
+      setTokenUsage(prev => {
+        const now = Date.now()
+        const mergedUser = mergeTokenUser(prev?.user, data.user, now)
+        saveLocalTokenUser(mergedUser)
+        return {
+          shared: data.shared,
+          user: mergedUser,
+          _clientFetchedAt: now,
+        }
+      })
+    } catch (e) { /* offline — tetap pakai local */ }
   }, [session])
 
-  // Adaptive interval berdasarkan urgency + sisa detik ke reset
+  // Bootstrap dari localStorage agar angka langsung nyata, lalu sync server
+  useEffect(() => {
+    const local = loadLocalTokenUser(isLoggedInToken)
+    if (local) {
+      setTokenUsage(prev => ({
+        ...(prev || {}),
+        user: mergeTokenUser(local, prev?.user, Date.now()),
+        _clientFetchedAt: Date.now(),
+      }))
+    } else {
+      // seed penuh supaya badge muncul segera
+      const seed = normalizeTokenUser({
+        isLoggedIn: isLoggedInToken,
+        quota: isLoggedInToken ? TOKEN_QUOTA_LOGIN : TOKEN_QUOTA_GUEST,
+        used: 0,
+        resetAt: tokenWindowEnd(),
+      })
+      setTokenUsage(prev => ({ ...(prev || {}), user: seed, _clientFetchedAt: Date.now() }))
+      saveLocalTokenUser(seed)
+    }
+    pollTokenUsage()
+  }, [isLoggedInToken]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Poll server (reconcile), interval adaptif
   useEffect(() => {
     let timer
     const schedule = () => {
       const u = tokenUsage?.user
       const urgency = u?.urgency || 'ok'
-      const resetAt = u?.resetAt
-      const leftMs = resetAt ? resetAt - Date.now() : 99999
-      let interval = 2000
-      if (urgency === 'empty' || urgency === 'critical') interval = 500
-      else if (urgency === 'low') interval = 1000
-      else if (urgency === 'mid') interval = 1500
-      if (leftMs > 0 && leftMs < 8000) interval = Math.min(interval, 400)
-      if (leftMs > 0 && leftMs < 3000) interval = 200
+      const leftMs = u?.resetAt ? u.resetAt - Date.now() : 99999
+      let interval = 2500
+      if (urgency === 'empty' || urgency === 'critical') interval = 600
+      else if (urgency === 'low') interval = 1200
+      else if (urgency === 'mid') interval = 1800
+      if (leftMs > 0 && leftMs < 5000) interval = Math.min(interval, 300)
       timer = setTimeout(async () => {
         await pollTokenUsage()
         schedule()
       }, interval)
     }
-    pollTokenUsage()
     schedule()
     const onVis = () => { if (!document.hidden) pollTokenUsage() }
     document.addEventListener('visibilitychange', onVis)
@@ -546,22 +685,34 @@ export default function Home() {
     }
   }, [pollTokenUsage, tokenUsage?.user?.urgency, tokenUsage?.user?.resetAt])
 
-  /* Countdown halus 100ms */
+  /* Tick real-time 100ms: countdown + auto-refill window */
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 100)
+    const id = setInterval(() => {
+      const t = Date.now()
+      setNow(t)
+      setTokenUsage(prev => {
+        if (!prev?.user) return prev
+        const next = normalizeTokenUser(prev.user, t)
+        // Hanya write state kalau berubah (refill / drift)
+        if (next.used === prev.user.used && next.resetAt === prev.user.resetAt && next.remaining === prev.user.remaining) {
+          return prev
+        }
+        saveLocalTokenUser(next)
+        return { ...prev, user: next }
+      })
+    }, 100)
     return () => clearInterval(id)
   }, [])
 
-  /* Tepat di batas reset → poll segera (isi ulang kuota) */
+  /* Di detik reset → sync server */
   useEffect(() => {
     const resetAt = tokenUsage?.user?.resetAt
     if (!resetAt) return
     const left = resetAt - Date.now()
-    if (left > 0 && left < 2000) {
-      const t = setTimeout(() => pollTokenUsage(), Math.max(0, left) + 30)
+    if (left > 0 && left < 1500) {
+      const t = setTimeout(() => pollTokenUsage(), Math.max(0, left) + 50)
       return () => clearTimeout(t)
     }
-    if (left <= 0) pollTokenUsage()
   }, [now, tokenUsage?.user?.resetAt, pollTokenUsage])
 
   useEffect(() => {
@@ -631,6 +782,17 @@ export default function Home() {
     setError('')
     logUX('send')
 
+    // Hint ke server = state SEBELUM potongan optimistik (hindari double-count)
+    let clientTokenHint = null
+    try {
+      const u = loadLocalTokenUser(Boolean(session?.guestId))
+      if (u) clientTokenHint = { used: u.used, resetAt: u.resetAt }
+    } catch (e) { clientTokenHint = null }
+
+    // Real-time: potong token di UI segera (optimistik)
+    const est = estimateSpend(text, attach)
+    deductLocalTokens(est)
+
     // Jeda alami seperti manusia mengetik (0.3–0.9 dtk, hanya saat animasi aktif)
     if (animPref === 'on') {
       await new Promise(r => setTimeout(r, 300 + Math.random() * 600))
@@ -642,7 +804,11 @@ export default function Home() {
     const useResearch = webSearch
 
     let endpoint = '/api/chat'
-    let body = { messages: messageList.map(m => ({ role: m.role, content: m.content })), guestId: session?.guestId || '' }
+    let body = {
+      messages: messageList.map(m => ({ role: m.role, content: m.content })),
+      guestId: session?.guestId || '',
+      clientTokenHint,
+    }
     let form = null
 
     if (attach) {
@@ -752,7 +918,7 @@ export default function Home() {
       abortRef.current = null
       pollTokenUsage()
     }
-  }, [loading, webSearch, animPref, pollTokenUsage, applyTokenUsage, showToast, session])
+  }, [loading, webSearch, animPref, pollTokenUsage, applyTokenUsage, showToast, session, deductLocalTokens])
 
   const handleSubmit = useCallback((e) => {
     e?.preventDefault()

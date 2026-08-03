@@ -1,6 +1,6 @@
 import { runChat } from '@/lib/engine/engine'
 import type { EngineErrorCode } from '@/lib/engine/types'
-import { deductUserTokens, flushTokenUsage, getCompletionRecorded, getUserTokenStatus } from '@/lib/token-usage'
+import { applyClientTokenHint, deductUserTokens, flushTokenUsage, getCompletionRecorded, getUserTokenStatus } from '@/lib/token-usage'
 
 export const maxDuration = 300
 
@@ -25,6 +25,7 @@ export async function POST(request: Request) {
       messages?: unknown
       guestId?: unknown
       pageContext?: unknown
+      clientTokenHint?: { used?: unknown; resetAt?: unknown } | null
     } | null
 
     // Dapatkan IP client
@@ -38,7 +39,10 @@ export async function POST(request: Request) {
     const isLoggedIn = guestId !== ''
     const userKey = isLoggedIn ? guestId : `ip:${ip}`
 
-    // Cek kuota sebelum memanggil model
+    // Merge hint token dari client (real-time UI) lalu cek kuota
+    if (body?.clientTokenHint) {
+      await applyClientTokenHint(userKey, isLoggedIn, body.clientTokenHint as { used?: number; resetAt?: number })
+    }
     const userStatus = await getUserTokenStatus(userKey, isLoggedIn)
     if (userStatus.remaining <= 0) {
       return Response.json(
