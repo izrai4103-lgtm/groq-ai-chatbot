@@ -939,7 +939,7 @@ export default function Home() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() }
   }, [handleSubmit])
 
-  const placeholder = webSearch ? 'Tanyakan apa pun, saya cari di web...' : 'Ketik pesan...'
+  const placeholder = webSearch ? 'Tanyakan apa pun, saya cari di web...' : "What's in your mind?..."
 
   const activeChats = [...chats].filter(c => !c.archived).sort((a, b) => b.updatedAt - a.updatedAt)
   const archivedChats = [...chats].filter(c => c.archived).sort((a, b) => b.updatedAt - a.updatedAt)
@@ -948,26 +948,38 @@ export default function Home() {
     <div className={`layout ${animPref === 'off' ? 'anim-off' : ''}`}>
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
-      {/* ===== SIDEBAR ===== */}
+      {/* ===== SIDEBAR (Figma template) ===== */}
       <aside className={`sidebar ${sidebarOpen ? '' : 'closed'}`}>
-        <div className="sidebar-hd">
+        <div className="sb-brand">
+          <span className="sb-logo" aria-hidden>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#zg)"/><defs><linearGradient id="zg" x1="2" y1="2" x2="22" y2="22"><stop stopColor="#459AFF"/><stop offset="1" stopColor="#6054FF"/></linearGradient></defs></svg>
+          </span>
+          <span className="sb-brand-name">ZANCO</span>
+        </div>
+
+        <div className="sb-actions">
           <button className="new-btn" onClick={newChat}>
-            <svg viewBox="0 0 24 24" fill="none" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
             New chat
+          </button>
+          <button className="sb-search-btn" type="button" title="Cari" onClick={() => document.getElementById('hist-search')?.focus()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>
           </button>
         </div>
 
         <div className="sidebar-search">
           <div className="search-wrap">
             <svg viewBox="0 0 24 24" fill="none" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>
-            <input className="search-input" placeholder="Cari riwayat..." value={historyQuery} onChange={e => setHistoryQuery(e.target.value)} />
+            <input id="hist-search" className="search-input" placeholder="Cari riwayat..." value={historyQuery} onChange={e => setHistoryQuery(e.target.value)} />
           </div>
         </div>
 
         <div className="sidebar-list">
           {showArchive ? (
             <>
-              <div className="hist-group">Arsip ({archivedChats.length})</div>
+              <div className="hist-row">
+                <span className="hist-group">Arsip ({archivedChats.length})</span>
+              </div>
               {archivedChats.length === 0 ? (
                 <div className="empty-state">Tidak ada chat di arsip</div>
               ) : archivedChats
@@ -987,7 +999,10 @@ export default function Home() {
             </>
           ) : (
             <>
-              <div className="hist-group">Chat Aktif</div>
+              <div className="hist-row">
+                <span className="hist-group">Your conversations</span>
+                <button type="button" className="hist-clear" onClick={clearHistoryChat}>Clear All</button>
+              </div>
               {activeChats.length === 0 ? (
                 <div className="empty-state">Belum ada chat. Mulai percakapan baru!</div>
               ) : activeChats
@@ -1015,21 +1030,17 @@ export default function Home() {
               Kembali ke chat
             </button>
           ) : (
-            <>
-              <button className="sidebar-bt-item" onClick={() => setShowArchive(true)}>
-                {ICONS.archive}
-                Arsip
-                {archivedChats.length > 0 && <span className="arch-badge">{archivedChats.length}</span>}
-              </button>
-              <button className="sidebar-bt-item" onClick={() => { setShowArchive(true); setHistoryQuery('') }}>
-                {ICONS.trash}
-                Hapus & Kelola
-              </button>
-            </>
+            <button className="sidebar-bt-item" onClick={() => setShowArchive(true)}>
+              {ICONS.archive}
+              Arsip
+              {archivedChats.length > 0 && <span className="arch-badge">{archivedChats.length}</span>}
+            </button>
           )}
-          <button className="sidebar-bt-item" onClick={() => setShowSettings(true)}>
-            <svg viewBox="0 0 24 24" fill="none" strokeLinecap="round"><circle cx="12" cy="12" r="3" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m9.9 9.9l2.1 2.1m0-14.1l-2.1 2.1M7 17.1l-2.1 2.1" /></svg>
-            Setelan
+          <button className="sidebar-bt-item sb-settings" onClick={() => setShowSettings(true)}>
+            <span className="sb-ic-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="3" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m9.9 9.9l2.1 2.1m0-14.1l-2.1 2.1M7 17.1l-2.1 2.1" /></svg>
+            </span>
+            Settings
           </button>
           <button type="button" className="sidebar-user" onClick={() => setShowProfile(true)} title="Profil">
             <div className="sidebar-user-av">
@@ -1038,7 +1049,9 @@ export default function Home() {
                 : <span>{(profile.name || DEFAULT_PROFILE.name).charAt(0).toUpperCase()}</span>}
             </div>
             <span className="sidebar-user-nm">{profile.name || DEFAULT_PROFILE.name}</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
+            <span className="sb-logout-ic" aria-hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </span>
           </button>
         </div>
       </aside>
