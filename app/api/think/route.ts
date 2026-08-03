@@ -27,7 +27,13 @@ export async function POST(request: Request) {
     const before = getCompletionRecorded()
     const result = await runThinking(body?.question, ip, Boolean(body?.web))
     await flushTokenUsage()
-    const spent = getCompletionRecorded() - before
+    let spent = getCompletionRecorded() - before
+    if (!Number.isFinite(spent) || spent <= 0) {
+      const q = typeof body?.question === 'string' ? body.question : ''
+      const out = typeof (result as any)?.answer === 'string' ? (result as any).answer
+        : typeof (result as any)?.content === 'string' ? (result as any).content : ''
+      spent = Math.max(48, Math.ceil((q.length + out.length) / 4))
+    }
     const tokenUsage =
       (await deductUserTokens(userKey, isLoggedIn, spent)) ||
       (await getUserTokenStatus(userKey, isLoggedIn))

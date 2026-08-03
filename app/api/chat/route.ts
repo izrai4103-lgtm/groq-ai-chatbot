@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     const userStatus = await getUserTokenStatus(userKey, isLoggedIn)
     if (userStatus.remaining <= 0) {
       return Response.json(
-        { error: 'Kuota token kamu habis. Reset otomatis dalam 1 menit.' },
+        { error: 'Kuota token kamu habis. Reset otomatis dalam 1 menit.', tokenUsage: userStatus },
         { status: 429 },
       )
     }
@@ -57,7 +57,15 @@ export async function POST(request: Request) {
       : undefined
     const result = await runChat(body?.messages, ip, context)
     await flushTokenUsage()
-    const spent = getCompletionRecorded() - before
+    let spent = getCompletionRecorded() - before
+    // Fallback estimasi bila API Groq tidak mengirim usage (spent=0)
+    if (!Number.isFinite(spent) || spent <= 0) {
+      const out = typeof result.content === 'string' ? result.content : ''
+      const inChars = Array.isArray(body?.messages)
+        ? body.messages.reduce((s: number, m: any) => s + (typeof m?.content === 'string' ? m.content.length : 0), 0)
+        : 0
+      spent = Math.max(32, Math.ceil((inChars + out.length) / 4))
+    }
     const tokenUsage = (await deductUserTokens(userKey, isLoggedIn, spent))
       || (await getUserTokenStatus(userKey, isLoggedIn))
 

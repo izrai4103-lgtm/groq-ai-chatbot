@@ -492,7 +492,16 @@ export default function Home() {
     if (!tokenUsage || typeof tokenUsage !== 'object') return
     setTokenUsage(prev => ({
       ...(prev || {}),
-      user: { ...(prev?.user || {}), ...tokenUsage },
+      user: {
+        ...(prev?.user || {}),
+        ...tokenUsage,
+        // jaga field penting selalu number
+        remaining: Number(tokenUsage.remaining ?? prev?.user?.remaining ?? 0),
+        used: Number(tokenUsage.used ?? prev?.user?.used ?? 0),
+        quota: Number(tokenUsage.quota ?? prev?.user?.quota ?? 10000),
+        resetAt: tokenUsage.resetAt ?? prev?.user?.resetAt ?? null,
+        serverNow: tokenUsage.serverNow ?? Date.now(),
+      },
       _clientFetchedAt: Date.now(),
     }))
   }, [])
@@ -516,11 +525,12 @@ export default function Home() {
       const urgency = u?.urgency || 'ok'
       const resetAt = u?.resetAt
       const leftMs = resetAt ? resetAt - Date.now() : 99999
-      let interval = 4000
-      if (urgency === 'empty' || urgency === 'critical') interval = 800
-      else if (urgency === 'low') interval = 1500
-      else if (urgency === 'mid') interval = 2500
-      if (leftMs > 0 && leftMs < 5000) interval = Math.min(interval, 500)
+      let interval = 2000
+      if (urgency === 'empty' || urgency === 'critical') interval = 500
+      else if (urgency === 'low') interval = 1000
+      else if (urgency === 'mid') interval = 1500
+      if (leftMs > 0 && leftMs < 8000) interval = Math.min(interval, 400)
+      if (leftMs > 0 && leftMs < 3000) interval = 200
       timer = setTimeout(async () => {
         await pollTokenUsage()
         schedule()

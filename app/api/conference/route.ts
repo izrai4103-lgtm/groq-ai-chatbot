@@ -29,7 +29,11 @@ export async function POST(request: Request) {
     const before = getCompletionRecorded()
     const result = await runConference(body?.topic, body?.rounds, ip)
     await flushTokenUsage()
-    const spent = getCompletionRecorded() - before
+    let spent = getCompletionRecorded() - before
+    if (!Number.isFinite(spent) || spent <= 0) {
+      const t = typeof body?.topic === 'string' ? body.topic : ''
+      spent = Math.max(64, Math.ceil(t.length / 4) + 200)
+    }
     const tokenUsage =
       (await deductUserTokens(userKey, isLoggedIn, spent)) ||
       (await getUserTokenStatus(userKey, isLoggedIn))
