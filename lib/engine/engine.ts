@@ -1,8 +1,13 @@
 /* ============================================================
  * 🔧 Mesin Utama AI (TypeScript)
- * Pipeline chat lengkap + orkestrasi thinking & conference.
- * Menggantikan jalur utama sebelumnya (lib/sandbox.js) untuk /api/chat.
- * Pipeline: validasi → sanitasi → content filter → rate limit → jailbreak → model.
+ * Pipeline chat: semua model saling bicara (multi-model collaboration).
+ * Setiap request chat otomatis melibatkan semua key/model:
+ *   1. Chat (key 1-2): jawab langsung
+ *   2. Research (key 5-6): cari data web jika perlu
+ *   3. Thinking (key 3-4): analisis mendalam
+ *   4. Creative (key 7-8): polish & enrich jawaban
+ *   5. Upload (key 9 + Gemini 1): proses file
+ *   6. Conference (Gemini 2-4): multi-AI diskusi
  * ============================================================ */
 import { JailbreakScanner, JAILBREAK_POLICY_PROMPT, verdictToError } from '../jailbreak-scanner'
 import { thinkAndResearch } from '../code-executor'
@@ -21,7 +26,6 @@ const jailbreakScanner = new JailbreakScanner()
 
 const MAX_TOOL_ROUNDS = 6
 
-/** Rapikan output model: runtuhkan whitespace patologis (em-space dll). */
 function normalizeOutput(s: string): string {
   if (!s) return ''
   return s
@@ -32,30 +36,45 @@ function normalizeOutput(s: string): string {
     .trim()
 }
 
-/** Anggap jawaban gagal jika didominasi whitespace (model "nyangkut"). */
 function isPathological(s: string, normalized: string): boolean {
   if (!s) return true
   const ratio = 1 - normalized.length / s.length
   return ratio > 0.6 && normalized.length < 120
 }
 
-// Request yang jelas minta tool (portofolio/PDF/analisis website) langsung
-// diberi ruang output lebih besar, karena argumen tool (JSON) butuh >160 token
-// dan panggilan 160 token untuk kasus ini pasti gagal (tool_use_failed).
 const TOOL_INTENT_RE =
   /(portofolio|portfolio|pdf|profil|cv|resume|analis.{0,20}(situs|website|url|web)|(situs|website|url|web).{0,20}analis|buatkan.{0,30}(portofolio|pdf)|https?:\/\/)/i
 function hasToolIntent(text: string): boolean {
   return TOOL_INTENT_RE.test(text)
 }
 
-/* ===== Konstanta ===== */
+/* Deteksi apakah pertanyaan butuh riset web */
+const RESEARCH_INTENT_RE =
+  /(siapa|apa itu|kapan|dimana|berapa|bagaimana|mengapa|kenapa|berita|terbaru|latest|news|update|harga|price|cuaca|weather|kurs|statistik|data |fakta|sejarah|who is|what is|when|where|how much|how many|why|search|cari|find|explain|jelaskan)/i
+function needsResearch(text: string): boolean {
+  return RESEARCH_INTENT_RE.test(text)
+}
+
+/* Deteksi apakah pertanyaan butuh pemikiran mendalam */
+const THINKING_INTENT_RE =
+  /(analisis|analyze|bandingkan|compare|evaluasi|evaluate|pro.?con|kelebihan.?kekurangan|strategi|strategy|solusi|solution|rencana|plan|pikirkan|think|review|debug|optimasi|optimize|arsitektur|architecture|desain sistem|system design|algoritma|algorithm)/i
+function needsThinking(text: string): boolean {
+  return THINKING_INTENT_RE.test(text)
+}
+
+/* Deteksi apakah pertanyaan butuh sentuhan kreatif */
+const CREATIVE_INTENT_RE =
+  /(tulis|write|buat.?(cerita|puisi|poem|story|artikel|article|copy|slogan|tagline|caption|naskah|script)|kreatif|creative|brainstorm|ide |ideas?|inspirasi|inspiration|nama.?(brand|produk|bisnis)|rewrite|parafrase|paraphrase)/i
+function needsCreative(text: string): boolean {
+  return CREATIVE_INTENT_RE.test(text)
+}
+
 const MAX_INPUT_LENGTH = 8000
 const MAX_MESSAGES = 20
 const BLOCKED_PATTERNS = [
   /https?:\/\/[^\s]*\.(exe|dll|bat|cmd|msi|sh|scr|pif|vbs|ps1)(\?|\s|$)/i,
 ]
 
-/* ===== Sanitasi input ===== */
 function sanitizeInput(text: string): string {
   const clean = text
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
@@ -63,14 +82,12 @@ function sanitizeInput(text: string): string {
   return clean.slice(0, MAX_INPUT_LENGTH).trim()
 }
 
-/* ===== Validasi pesan ===== */
 function validateMessages(messages: unknown): { valid: true } | { valid: false; error: string } {
   if (!Array.isArray(messages)) return { valid: false, error: 'Messages harus berupa array' }
   if (messages.length === 0) return { valid: false, error: 'Messages tidak boleh kosong' }
   if (messages.length > MAX_MESSAGES) {
     return { valid: false, error: `Maksimal ${MAX_MESSAGES} pesan` }
   }
-
   for (const msg of messages) {
     if (!msg || typeof msg !== 'object') return { valid: false, error: 'Format pesan tidak valid' }
     const m = msg as { role?: unknown; content?: unknown }
@@ -82,11 +99,9 @@ function validateMessages(messages: unknown): { valid: true } | { valid: false; 
       return { valid: false, error: `Pesan terlalu panjang (max ${MAX_INPUT_LENGTH} karakter)` }
     }
   }
-
   return { valid: true }
 }
 
-/* ===== Content filter ===== */
 function filterContent(text: string): { blocked: boolean; reason?: string } {
   for (const pattern of BLOCKED_PATTERNS) {
     if (pattern.test(text)) {
@@ -96,7 +111,6 @@ function filterContent(text: string): { blocked: boolean; reason?: string } {
   return { blocked: false }
 }
 
-/* ===== Bungkus error engine ===== */
 function err(code: EngineErrorCode, message: string, meta?: unknown): EngineResult {
   return { success: false, content: null, error: { code, message, meta }, meta: {} }
 }
@@ -106,8 +120,9 @@ function ok(content: string, meta: EngineResult['meta'] = {}): EngineResult {
 }
 
 /* ============================================================
- * CHAT — pipeline penuh (validasi -> sanitasi -> filter -> scan
- * jailbreak -> rate limit -> panggil model Groq)
+ * CHAT — Multi-Model Collaboration Pipeline
+ * Semua model saling bicara setiap request:
+ * Chat → Research → Thinking → Creative → Final Answer
  * ============================================================ */
 export interface RunChatOptions {
   context?: string
@@ -123,7 +138,7 @@ export async function runChat(
   const clientIp = ip || 'anonymous'
 
   try {
-    // 1. Validasi input
+    // 1. Validasi
     const validation = validateMessages(messages)
     if (!validation.valid) return err('INVALID_INPUT', validation.error)
 
@@ -132,20 +147,18 @@ export async function runChat(
       ...m,
       content: sanitizeInput(m.content),
     }))
-
-    // 3. Buang pesan yang jadi kosong
     const filtered = sanitized.filter(m => m.content.length > 0)
     if (filtered.length === 0) {
       return err('EMPTY_AFTER_SANITIZE', 'Pesan kosong setelah filter')
     }
 
-    // 4. Content filter
+    // 3. Content filter
     for (const msg of filtered) {
       const check = filterContent(msg.content)
       if (check.blocked) return err('CONTENT_BLOCKED', check.reason ?? 'Konten diblokir')
     }
 
-    // 5. Rate limit dulu (sebelum jailbreak ML) — hemat kuota API saat flood
+    // 4. Rate limit
     const meta: EngineResult['meta'] = {}
     const rate = checkRateLimit(clientIp)
     meta.rateLimit = { allowed: rate.allowed, remaining: rate.remaining, resetAt: rate.resetAt }
@@ -156,7 +169,7 @@ export async function runChat(
       )
     }
 
-    // 6. Jailbreak scan (sebelum pesan sampai ke model AI)
+    // 5. Jailbreak scan
     const lastUser = [...filtered].reverse().find(m => m.role === 'user')
     if (lastUser) {
       const scan = await jailbreakScanner.scan(lastUser.content, clientIp) as ScanResult
@@ -174,11 +187,76 @@ export async function runChat(
       }
     }
 
-    // 7. Eksekusi model (terisolasi)
+    // 6. Ambil teks user terakhir untuk deteksi intent
+    const lastUserText = lastUser?.content || ''
+    const wantsResearch = needsResearch(lastUserText)
+    const wantsThinking = needsThinking(lastUserText)
+    const wantsCreative = needsCreative(lastUserText)
+
+    // ============================================================
+    // MULTI-MODEL COLLABORATION: semua model saling bicara
+    // ============================================================
+
+    // --- TAHAP 1: Research (key 5 & 6) — cari data web jika perlu ---
+    let researchContext = ''
+    if (wantsResearch) {
+      try {
+        const webResults = await webResearch(lastUserText)
+        const sources = (webResults || []).slice(0, 8)
+        if (sources.length > 0) {
+          researchContext = '\n\n🔍 HASIL RISET WEB (dari Research Agent, key 5-6):\n' +
+            sources.map((r: any, i: number) =>
+              `[${i + 1}] ${r.title || r.name || 'Sumber'}: ${(r.snippet || r.description || '').slice(0, 200)}${r.url ? ` (${r.url})` : ''}`
+            ).join('\n')
+
+          // Research model synthesize data
+          try {
+            const researchSynthesis = await callGroqWithTools(
+              'research',
+              'Kamu Research Agent. Rangkum data web berikut menjadi insight singkat (3-5 poin) yang relevan untuk menjawab pertanyaan user. Padat dan akurat.',
+              [{ role: 'user', content: `Pertanyaan: ${lastUserText}\n\nData:\n${researchContext}` }] as GroqToolMessage[],
+              [] as GroqToolDefinition[],
+              { maxTokens: 1024, timeoutMs: 10_000 },
+            )
+            if (researchSynthesis.content) {
+              researchContext = '\n\n🔍 INSIGHT DARI RESEARCH AGENT:\n' + normalizeOutput(researchSynthesis.content)
+            }
+          } catch { /* pakai raw results kalau synthesis gagal */ }
+        }
+      } catch { /* research opsional, lanjut tanpa data web */ }
+    }
+
+    // --- TAHAP 2: Thinking (key 3 & 4) — analisis mendalam jika perlu ---
+    let thinkingContext = ''
+    if (wantsThinking) {
+      try {
+        const thinkPrompt = researchContext
+          ? `Pertanyaan user: ${lastUserText}\n${researchContext}\n\nBerikan analisis mendalam: pertimbangan, pro-kontra, dan rekomendasi.`
+          : `Pertanyaan user: ${lastUserText}\n\nBerikan analisis mendalam: pertimbangan, pro-kontra, dan rekomendasi.`
+
+        const thinkResult = await callGroqWithTools(
+          'thinking',
+          'Kamu Thinking Agent. Tugasmu menganalisis secara mendalam, memberikan sudut pandang berbeda, dan menyusun pemikiran terstruktur. Singkat tapi tajam.',
+          [{ role: 'user', content: thinkPrompt }] as GroqToolMessage[],
+          [] as GroqToolDefinition[],
+          { maxTokens: 1024, timeoutMs: 10_000 },
+        )
+        if (thinkResult.content) {
+          thinkingContext = '\n\n🧠 ANALISIS DARI THINKING AGENT:\n' + normalizeOutput(thinkResult.content)
+        }
+      } catch { /* thinking opsional */ }
+    }
+
+    // --- TAHAP 3: Chat (key 1 & 2) — jawab utama dengan konteks semua agent ---
     const compactBase = (() => {
       const s = BASE_SYSTEM_PROMPT
       return s.length <= 1800 ? s : s.slice(0, s.lastIndexOf('\n', 1800))
     })()
+
+    const collaborationNote = (researchContext || thinkingContext)
+      ? `\n\nKamu bekerja dalam tim AI. Berikut kontribusi dari agent lain yang SUDAH mengerjakan bagian mereka. Integrasikan insight mereka ke jawabanmu secara natural (jangan copy-paste mentah). Jika ada sumber web, sertakan referensi.${researchContext}${thinkingContext}`
+      : ''
+
     const systemPrompt = [
       compactBase,
       MATH_TUTOR_PROMPT,
@@ -186,6 +264,7 @@ export async function runChat(
       context,
       TOOL_GUIDANCE_PROMPT,
       WEBSITE_CONTROL_PROMPT,
+      collaborationNote,
     ]
       .filter(Boolean)
       .join('\n\n')
@@ -196,9 +275,6 @@ export async function runChat(
     }))
 
     let finalContent = ''
-    const lastUserText = String(
-      [...chatMessages].reverse().find(m => m.role === 'user')?.content || '',
-    )
     const toolIntent = hasToolIntent(lastUserText)
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const modelResult = await callGroqWithTools(
@@ -268,6 +344,22 @@ export async function runChat(
       if (done) break
     }
 
+    // --- TAHAP 4: Creative (key 7 & 8) — polish jawaban jika perlu ---
+    if (wantsCreative && finalContent) {
+      try {
+        const creativeResult = await callGroqWithTools(
+          'creative',
+          'Kamu Creative Agent. Tugasmu memperkaya dan memoles teks berikut agar lebih menarik, mudah dibaca, dan engaging. Pertahankan semua fakta dan referensi, hanya tingkatkan kualitas tulisan. Jangan menambah informasi baru yang tidak ada di teks asli.',
+          [{ role: 'user', content: `Polish teks ini:\n\n${finalContent}` }] as GroqToolMessage[],
+          [] as GroqToolDefinition[],
+          { maxTokens: 2048, temperature: 0.8, timeoutMs: 10_000 },
+        )
+        if (creativeResult.content && creativeResult.content.trim().length > finalContent.length * 0.5) {
+          finalContent = creativeResult.content
+        }
+      } catch { /* creative polish opsional, pakai jawaban chat langsung */ }
+    }
+
     const rawFinal = finalContent
     const normFinal = normalizeOutput(rawFinal)
     finalContent = isPathological(rawFinal, normFinal) ? '' : normFinal
@@ -290,6 +382,19 @@ export async function runChat(
       }
     }
 
+    // Tambahkan info kolaborasi ke meta
+    meta.collaboration = {
+      research: wantsResearch && researchContext.length > 0,
+      thinking: wantsThinking && thinkingContext.length > 0,
+      creative: wantsCreative,
+      agents: [
+        'Chat (key 1-2)',
+        ...(wantsResearch && researchContext ? ['Research (key 5-6)'] : []),
+        ...(wantsThinking && thinkingContext ? ['Thinking (key 3-4)'] : []),
+        ...(wantsCreative ? ['Creative (key 7-8)'] : []),
+      ],
+    }
+
     return ok(finalContent, meta)
   } catch (e) {
     if (e instanceof EngineError) {
@@ -300,8 +405,7 @@ export async function runChat(
 }
 
 /* ============================================================
- * THINKING / WEB RESEARCH — validasi + scan, lalu delegasi ke
- * mesin riset (lib/code-executor.js) yang sudah matang.
+ * THINKING / WEB RESEARCH — standalone endpoint
  * ============================================================ */
 export interface ThinkResult {
   blockCode?: string
@@ -331,8 +435,7 @@ export async function runThinking(question: unknown, ip: string | undefined, use
 }
 
 /* ============================================================
- * RESEARCH — Deep research menggunakan key 5 & 6.
- * Web search + AI synthesis untuk riset mendalam.
+ * RESEARCH — standalone endpoint (key 5 & 6)
  * ============================================================ */
 export interface ResearchResult {
   answer?: string
@@ -364,7 +467,6 @@ export async function runResearch(
   }
 
   try {
-    // 1. Web research (gratis, multi-sumber)
     const webResults = await webResearch(question)
     const sources = (webResults || []).slice(0, 10).map((r: any) => ({
       title: r.title || r.name || '',
@@ -372,36 +474,29 @@ export async function runResearch(
       snippet: r.snippet || r.description || '',
     }))
 
-    // 2. Synthesize dengan AI menggunakan key research (5 & 6)
     const contextSnippets = sources
       .map((s: { title: string; snippet: string }, i: number) => `[${i + 1}] ${s.title}: ${s.snippet}`)
       .join('\n')
 
-    const systemPrompt = `Kamu adalah peneliti AI. Berdasarkan sumber web berikut, berikan jawaban komprehensif dan akurat untuk pertanyaan user. Sertakan referensi [nomor] ke sumber.\n\nSumber:\n${contextSnippets}`
+    const sysPrompt = `Kamu adalah peneliti AI. Berdasarkan sumber web berikut, berikan jawaban komprehensif dan akurat. Sertakan referensi [nomor].\n\nSumber:\n${contextSnippets}`
 
     const result = await callGroqWithTools(
       'research',
-      systemPrompt,
+      sysPrompt,
       [{ role: 'user', content: question }] as GroqToolMessage[],
       [] as GroqToolDefinition[],
       { maxTokens: 2048 },
     )
 
-    return {
-      answer: normalizeOutput(result.content || ''),
-      sources,
-    }
+    return { answer: normalizeOutput(result.content || ''), sources }
   } catch (e) {
-    if (e instanceof EngineError) {
-      return { code: e.code, message: e.message }
-    }
+    if (e instanceof EngineError) return { code: e.code, message: e.message }
     return { code: 'AI_UNKNOWN', message: 'Research gagal: ' + (e instanceof Error ? e.message : String(e)) }
   }
 }
 
 /* ============================================================
- * CREATIVE — Mode kreatif menggunakan key 7 & 8.
- * Untuk puisi, cerita, storytelling, brainstorming, copywriting.
+ * CREATIVE — standalone endpoint (key 7 & 8)
  * ============================================================ */
 export interface CreativeResult {
   content?: string
@@ -437,41 +532,34 @@ export async function runCreative(
     const styleHint = typeof style === 'string' && style.trim() ? style.trim() : 'default'
     const CREATIVE_STYLES: Record<string, string> = {
       puisi: 'Kamu adalah penyair berbakat. Tulis dengan bahasa indah, penuh metafora dan emosi.',
-      cerita: 'Kamu adalah penulis cerita. Tulis narasi yang menarik dengan karakter hidup dan alur yang memukau.',
+      cerita: 'Kamu adalah penulis cerita. Tulis narasi menarik dengan karakter hidup.',
       humor: 'Kamu adalah komedian. Tulis dengan gaya lucu, witty, dan menghibur.',
-      formal: 'Kamu adalah penulis profesional. Tulis dengan gaya formal, terstruktur, dan elegan.',
-      copywriting: 'Kamu adalah copywriter handal. Tulis dengan gaya persuasif, catchy, dan to-the-point.',
-      brainstorm: 'Kamu adalah kreator ide. Berikan ide-ide kreatif, out-of-the-box, dan inovatif.',
-      default: 'Kamu adalah penulis kreatif serbaguna. Sesuaikan gaya dengan konteks prompt.',
+      formal: 'Kamu adalah penulis profesional. Tulis dengan gaya formal dan elegan.',
+      copywriting: 'Kamu adalah copywriter handal. Tulis persuasif dan to-the-point.',
+      brainstorm: 'Kamu adalah kreator ide. Berikan ide kreatif dan inovatif.',
+      default: 'Kamu adalah penulis kreatif serbaguna. Sesuaikan gaya dengan konteks.',
     }
 
-    const systemPrompt = CREATIVE_STYLES[styleHint] || CREATIVE_STYLES['default']
-
+    const sysPrompt = CREATIVE_STYLES[styleHint] || CREATIVE_STYLES['default']
     const result = await callGroqWithTools(
       'creative',
-      systemPrompt,
+      sysPrompt,
       [{ role: 'user', content: prompt }] as GroqToolMessage[],
       [] as GroqToolDefinition[],
       { maxTokens: 2048, temperature: 0.9 },
     )
 
     const output = normalizeOutput(result.content || '')
-    if (!output) {
-      return { code: 'AI_EMPTY_RESPONSE', message: 'Model tidak menghasilkan konten kreatif' }
-    }
-
+    if (!output) return { code: 'AI_EMPTY_RESPONSE', message: 'Model tidak menghasilkan konten kreatif' }
     return { content: output, style: styleHint }
   } catch (e) {
-    if (e instanceof EngineError) {
-      return { code: e.code, message: e.message }
-    }
+    if (e instanceof EngineError) return { code: e.code, message: e.message }
     return { code: 'AI_UNKNOWN', message: 'Creative gagal: ' + (e instanceof Error ? e.message : String(e)) }
   }
 }
 
 /* ============================================================
- * CONFERENCE — semua model saling berdiskusi.
- * Validasi + scan, lalu delegasi ke lib/model-conference.js.
+ * CONFERENCE — semua model saling berdiskusi (Gemini 2-4)
  * ============================================================ */
 export interface ConferenceResult {
   blockCode?: string
