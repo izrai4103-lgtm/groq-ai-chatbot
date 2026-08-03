@@ -19,7 +19,7 @@ import { BASE_SYSTEM_PROMPT } from '../schema-prompt'
 import { MATH_TUTOR_PROMPT } from '../math-tutor-prompt'
 import { checkRateLimit } from './rate-limit'
 import { WEBSITE_CONTROL_PROMPT, WEBSITE_TOOLS, WEBSITE_TOOL_NAMES } from '../website-control'
-import { webResearch } from '../web-research'
+import { fetchWebResearch } from '../web-research'
 import type { ChatMessage, EngineErrorCode, EngineResult, ModelKind, ScanResult } from './types'
 
 const jailbreakScanner = new JailbreakScanner()
@@ -201,7 +201,7 @@ export async function runChat(
     let researchContext = ''
     if (wantsResearch) {
       try {
-        const webResults = await webResearch(lastUserText)
+        const webResults = await fetchWebResearch(lastUserText)
         const sources = (webResults || []).slice(0, 8)
         if (sources.length > 0) {
           researchContext = '\n\n🔍 HASIL RISET WEB (dari Research Agent, key 5-6):\n' +
@@ -467,7 +467,7 @@ export async function runResearch(
   }
 
   try {
-    const webResults = await webResearch(question)
+    const webResults = await fetchWebResearch(question)
     const sources = (webResults || []).slice(0, 10).map((r: any) => ({
       title: r.title || r.name || '',
       url: r.url || r.link || '',
