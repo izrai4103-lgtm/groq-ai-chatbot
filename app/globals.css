@@ -1083,11 +1083,12 @@ html,body{background:#F1F5F9!important;color:#0F172A}
   padding:16px 14px 28px!important;
 }
 .msg{
-  width:100%;display:flex;background:transparent!important;
-  padding:2px 0!important;margin:0!important;border:none!important
+  width:100%;display:flex;flex-direction:column!important;
+  background:transparent!important;
+  padding:2px 0 4px!important;margin:0!important;border:none!important
 }
-.msg.user{justify-content:flex-end}
-.msg.assistant{justify-content:flex-start}
+.msg.user{align-items:flex-end!important}
+.msg.assistant{align-items:flex-start!important}
 
 .msg.user .msg-row{
   flex-direction:row-reverse;
@@ -1578,13 +1579,14 @@ button:disabled{cursor:not-allowed}
 }
 
 
-/* === Copy-paste under bubble === */
+/* === Copy-paste under bubble (bukan samping) === */
 .msg-copy-row{
-  display:flex;align-items:center;padding:2px 8px 6px;
+  display:flex;align-items:center;width:auto;
+  padding:4px 4px 2px;margin-top:2px;
   max-width:min(82%, 520px)
 }
-.msg-copy-row.user{justify-content:flex-end;margin-left:auto;margin-right:38px}
-.msg-copy-row.assistant{justify-content:flex-start;margin-right:auto;margin-left:38px}
+.msg-copy-row.user{justify-content:flex-end;align-self:flex-end;margin-right:38px}
+.msg-copy-row.assistant{justify-content:flex-start;align-self:flex-start;margin-left:38px}
 .msg-copy-btn{
   display:inline-flex;align-items:center;gap:5px;
   padding:5px 11px;border-radius:999px;
