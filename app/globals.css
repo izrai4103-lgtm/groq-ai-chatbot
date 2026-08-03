@@ -159,7 +159,17 @@ textarea{font-family:var(--font)}
   position:absolute;inset:0;z-index:0;pointer-events:none;
   width:100%;height:100%;opacity:.85
 }
-.main > *:not(.matrix-bg){position:relative;z-index:1}
+.main > *:not(.matrix-bg):not(.settings-overlay):not(.toast){position:relative;z-index:1}
+/* Overlay login/profil/setelan harus fixed ke viewport — jangan kena rule relative di atas */
+.main > .settings-overlay{
+  position:fixed!important;inset:0;z-index:200;
+  display:flex;align-items:flex-start;justify-content:center;
+  padding:max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px));
+  overflow-y:auto;-webkit-overflow-scrolling:touch
+}
+.main > .settings-overlay .settings{
+  margin:auto;width:min(400px,100%)
+}
 
 /* ===== TOPBAR ===== */
 .topbar{
@@ -553,9 +563,10 @@ button:focus-visible{outline-color:rgba(212,175,55,.75)}
 
 /* ===== SETTINGS (Setelan: enable/disable animasi) ===== */
 .settings-overlay{
-  position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;
-  padding:16px;background:rgba(0,0,0,.35);
-  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  position:fixed!important;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;
+  padding:max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px));
+  background:rgba(0,0,0,.55);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
   animation:overlayIn .2s ease both;overflow-y:auto;-webkit-overflow-scrolling:touch
 }
 @keyframes overlayIn{from{opacity:0}to{opacity:1}}

@@ -1195,43 +1195,42 @@ export default function Home() {
         </div>
 
 
-        {/* SETTINGS — info pembuat AI saja */}
-        {showSettings && (
-          <div className="settings-overlay" onClick={() => setShowSettings(false)}>
-            <div className="settings" role="dialog" aria-modal="true" aria-label="Setelan" onClick={e => e.stopPropagation()}>
-              <div className="settings-hd">
-                <h3>Setelan</h3>
-                <button className="settings-close" onClick={() => setShowSettings(false)} aria-label="Tutup setelan">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
-                </button>
-              </div>
-              <div className="settings-about">
-                <div className="settings-about-ic" aria-hidden>✨</div>
-                <p className="settings-about-tx">
-                  AI ini dibuat oleh developer tunggal
-                  <br />
-                  <strong>~Andmute🎉</strong>
-                </p>
-              </div>
+      </main>
+
+      {/* Overlay di luar main agar position:fixed tidak rusak oleh overflow/relative main */}
+      {showSettings && (
+        <div className="settings-overlay" onClick={() => setShowSettings(false)}>
+          <div className="settings" role="dialog" aria-modal="true" aria-label="Setelan" onClick={e => e.stopPropagation()}>
+            <div className="settings-hd">
+              <h3>Setelan</h3>
+              <button className="settings-close" onClick={() => setShowSettings(false)} aria-label="Tutup setelan">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="settings-about">
+              <div className="settings-about-ic" aria-hidden>✨</div>
+              <p className="settings-about-tx">
+                AI ini dibuat oleh developer tunggal
+                <br />
+                <strong>~Andmute🎉</strong>
+              </p>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* PROFIL */}
-        {showProfile && (
-          <ProfilePanel
-            profile={profile}
-            session={session}
-            onProfileChange={setProfile}
-            onSessionChange={setSession}
-            onClose={() => setShowProfile(false)}
-            onToast={showToast}
-          />
-        )}
+      {showProfile && (
+        <ProfilePanel
+          profile={profile}
+          session={session}
+          onProfileChange={setProfile}
+          onSessionChange={setSession}
+          onClose={() => setShowProfile(false)}
+          onToast={showToast}
+        />
+      )}
 
-        {/* TOAST */}
-        {toast && <div className="toast">{toast}</div>}
-      </main>
+      {toast && <div className="toast">{toast}</div>}
     </div>
   )
 }
