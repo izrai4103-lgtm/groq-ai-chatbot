@@ -7,7 +7,7 @@ import type { EngineErrorCode, ScanResult } from '@/lib/engine/types'
 // Scanner penuh (heuristic + ML) dipakai untuk pesan user di sandbox (runChat).
 // Konteks lampiran adalah output AI sendiri (vision/pillow), jadi cukup
 // heuristic-only untuk hindari false positive dari Prompt Guard.
-const contextScanner = new JailbreakScanner({ useMlLayer: false, useContentPolicyLayer: false })
+const contextScanner = new JailbreakScanner() // mode ketat 24/7 (default config)
 
 const STATUS_MAP: Record<EngineErrorCode, number> = {
   INVALID_INPUT: 400,
