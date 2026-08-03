@@ -182,8 +182,8 @@ export default function ProfilePanel({ profile, session, onProfileChange, onSess
                   </svg>
                 </div>
                 <div className="ktp-head-tx">
-                  <div className="ktp-h-kiri">NEGARA KESATUAN REPUBLIK INDONESIA</div>
-                  <div className="ktp-h-main">KARTU TANDA PENDUDUK</div>
+                  <div className="ktp-head-kiri">REPUBLIK</div>
+                  <div className="ktp-head-main">OF CYBER</div>
                 </div>
                 <div className="ktp-head-mark">ID</div>
               </div>
