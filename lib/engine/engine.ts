@@ -2,6 +2,7 @@
  * 🔧 Mesin Utama AI (TypeScript)
  * Pipeline chat lengkap + orkestrasi thinking & conference.
  * Menggantikan jalur utama sebelumnya (lib/sandbox.js) untuk /api/chat.
+ * Pipeline: validasi → sanitasi → content filter → rate limit → jailbreak → model.
  * ============================================================ */
 import { JailbreakScanner, JAILBREAK_POLICY_PROMPT, verdictToError } from '../jailbreak-scanner'
 import { thinkAndResearch } from '../code-executor'
@@ -22,12 +23,12 @@ const MAX_TOOL_ROUNDS = 6
 /** Rapikan output model: runtuhkan whitespace patologis (em-space dll). */
 function normalizeOutput(s: string): string {
   if (!s) return ''
-  const out = s
-    .replace(/[\u00a0\u2000-\u200b\u3000\t]+/g, ' ')
+  return s
+    .replace(/[\u00a0\u2000-\u200b\u200c\u200d\ufeff\u2060\u3000\t]+/g, ' ')
     .replace(/ +/g, ' ')
     .replace(/\n +/g, '\n')
+    .replace(/ +\n/g, '\n')
     .trim()
-  return out
 }
 
 /** Anggap jawaban gagal jika didominasi whitespace (model "nyangkut"). */
@@ -50,12 +51,15 @@ function hasToolIntent(text: string): boolean {
 const MAX_INPUT_LENGTH = 8000
 const MAX_MESSAGES = 20
 const BLOCKED_PATTERNS = [
-  /https?:\/\/[^\s]*\.(exe|dll|bat|cmd|msi|sh|scr|pif|vbs|ps1)/i,
+  /https?:\/\/[^\s]*\.(exe|dll|bat|cmd|msi|sh|scr|pif|vbs|ps1)(\?|\s|$)/i,
 ]
 
 /* ===== Sanitasi input ===== */
 function sanitizeInput(text: string): string {
-  const clean = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+  // Buang kontrol char + zero-width (anti-obfuscation), batasi panjang
+  const clean = text
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/[\u200b\u200c\u200d\ufeff\u2060\u180e\u00ad]/g, '')
   return clean.slice(0, MAX_INPUT_LENGTH).trim()
 }
 
@@ -141,9 +145,19 @@ export async function runChat(
       if (check.blocked) return err('CONTENT_BLOCKED', check.reason ?? 'Konten diblokir')
     }
 
-    // 5. Jailbreak scan (sebelum pesan sampai ke model AI)
-    const lastUser = [...filtered].reverse().find(m => m.role === 'user')
+    // 5. Rate limit dulu (sebelum jailbreak ML) — hemat kuota API saat flood
     const meta: EngineResult['meta'] = {}
+    const rate = checkRateLimit(clientIp)
+    meta.rateLimit = { allowed: rate.allowed, remaining: rate.remaining, resetAt: rate.resetAt }
+    if (!rate.allowed) {
+      return err(
+        'RATE_LIMITED',
+        `Terlalu banyak request. Tunggu ${Math.ceil((rate.resetAt - Date.now()) / 1000)} detik`,
+      )
+    }
+
+    // 6. Jailbreak scan (sebelum pesan sampai ke model AI)
+    const lastUser = [...filtered].reverse().find(m => m.role === 'user')
     if (lastUser) {
       const scan = await jailbreakScanner.scan(lastUser.content, clientIp) as ScanResult
       if (scan.verdict === 'banned' || scan.verdict === 'block') {
@@ -158,16 +172,6 @@ export async function runChat(
           matchedPatterns: scan.matchedPatterns,
         }
       }
-    }
-
-    // 6. Rate limit
-    const rate = checkRateLimit(clientIp)
-    meta.rateLimit = { allowed: rate.allowed, remaining: rate.remaining, resetAt: rate.resetAt }
-    if (!rate.allowed) {
-      return err(
-        'RATE_LIMITED',
-        `Terlalu banyak request. Tunggu ${Math.ceil((rate.resetAt - Date.now()) / 1000)} detik`,
-      )
     }
 
     // 7. Eksekusi model (terisolasi) — system prompt dari schema.json + persona
