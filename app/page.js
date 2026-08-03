@@ -428,6 +428,14 @@ export default function Home() {
   const [error, setError] = useState('')
   const [showScroll, setShowScroll] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  useEffect(() => {
+    if (window.innerWidth <= 768) setSidebarOpen(false)
+    const onResize = () => {
+      if (window.innerWidth > 768) setSidebarOpen(true)
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
   const [showArchive, setShowArchive] = useState(false)
   const [webSearch, setWebSearch] = useState(false)
   const [file, setFile] = useState(null)
