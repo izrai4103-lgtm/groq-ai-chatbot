@@ -98,13 +98,14 @@ textarea{font-family:var(--font)}
 /* ===== MAIN ===== */
 .main{
   flex:1;display:flex;flex-direction:column;min-width:0;height:100%;
-  background-color:#0a0a0a;
-  background-image:url('/bg-chat.jpg');
-  background-position:center center;
-  background-size:cover;
-  background-repeat:no-repeat;
-  background-attachment:fixed;
+  background-color:#000;
+  position:relative;overflow:hidden
 }
+.matrix-bg{
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  width:100%;height:100%;opacity:.85
+}
+.main > *:not(.matrix-bg){position:relative;z-index:1}
 
 /* ===== TOPBAR ===== */
 .topbar{

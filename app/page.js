@@ -88,7 +88,91 @@ function TokenBadge({ usage, now }) {
   )
 }
 
+/* ===== MATRIX RAIN BACKGROUND ===== */
+function MatrixRain() {
+  const ref = useRef(null)
+  useEffect(() => {
+    const canvas = ref.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&*'
+    const fontSize = 14
+    let cols = 0
+    let drops = []
+    let raf = 0
+    let running = true
+
+    const resize = () => {
+      const parent = canvas.parentElement
+      const w = parent?.clientWidth || window.innerWidth
+      const h = parent?.clientHeight || window.innerHeight
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      canvas.width = Math.floor(w * dpr)
+      canvas.height = Math.floor(h * dpr)
+      canvas.style.width = w + 'px'
+      canvas.style.height = h + 'px'
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      cols = Math.ceil(w / fontSize)
+      drops = Array.from({ length: cols }, () => Math.random() * -50)
+    }
+
+    const draw = () => {
+      if (!running) return
+      const w = canvas.clientWidth
+      const h = canvas.clientHeight
+      // Trails
+      ctx.fillStyle = 'rgba(0,0,0,0.08)'
+      ctx.fillRect(0, 0, w, h)
+      ctx.font = `bold ${fontSize}px monospace`
+      for (let i = 0; i < drops.length; i++) {
+        const ch = letters[(Math.random() * letters.length) | 0]
+        const x = i * fontSize
+        const y = drops[i] * fontSize
+        // Head brighter
+        ctx.fillStyle = '#b6ffb6'
+        ctx.fillText(ch, x, y)
+        ctx.fillStyle = '#00ff41'
+        ctx.fillText(letters[(Math.random() * letters.length) | 0], x, y - fontSize)
+        if (y > h && Math.random() > 0.975) drops[i] = 0
+        else drops[i]++
+      }
+      raf = requestAnimationFrame(draw)
+    }
+
+    resize()
+    // Initial black
+    ctx.fillStyle = '#000'
+    ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight)
+    raf = requestAnimationFrame(draw)
+
+    const onResize = () => resize()
+    window.addEventListener('resize', onResize)
+    const onVis = () => {
+      if (document.hidden) {
+        running = false
+        cancelAnimationFrame(raf)
+      } else if (!running) {
+        running = true
+        raf = requestAnimationFrame(draw)
+      }
+    }
+    document.addEventListener('visibilitychange', onVis)
+
+    return () => {
+      running = false
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResize)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [])
+
+  return <canvas ref={ref} className="matrix-bg" aria-hidden />
+}
+
 /* ===== UX EVENT LOG (ringan, console saja — tidak disimpan) ===== */
+
 function logUX(event, extra) {
   try { console.debug(`[UX] ${event}`, extra || '') } catch (e) { /* ignore */ }
 }
@@ -961,6 +1045,7 @@ export default function Home() {
 
       {/* ===== MAIN ===== */}
       <main className="main">
+        <MatrixRain />
         {/* TOPBAR */}
         <div className="topbar">
           <div className="topbar-side">
