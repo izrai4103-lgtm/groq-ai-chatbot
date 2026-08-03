@@ -12,20 +12,26 @@ const ANIM_KEY = 'groq_anim_v1'
 
 let idCounter = 0
 const nextId = () => `m${++idCounter}-${Date.now()}`
-const truncate = (s, n = 34) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
+const truncate = (s, n = 34) => (s.length > n ? s.slice(0, n - 1) + '\u2026' : s)
 const formatTokens = (n) => {
-  if (n == null || !Number.isFinite(n)) return '—'
+  if (n == null || !Number.isFinite(n)) return '\u2014'
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`
   return String(Math.round(n))
 }
 const formatReset = (s) => {
-  if (s == null || !Number.isFinite(s)) return '—'
+  if (s == null || !Number.isFinite(s)) return '\u2014'
   const sec = Math.max(0, Math.ceil(s))
   if (sec <= 0) return '0:00'
   const m = Math.floor(sec / 60)
   const r = sec % 60
   return `${m}:${String(r).padStart(2, '0')}`
+}
+
+/* ===== helper: strip streaming flags from persisted messages ===== */
+function sanitizeMessages(msgs) {
+  if (!Array.isArray(msgs)) return []
+  return msgs.map(m => m.streaming ? { ...m, streaming: false } : m)
 }
 
 /* ===== REAL-TIME TOKEN ENGINE ===== */
@@ -143,15 +149,15 @@ function TokenBadge({ usage, now }) {
     `Sisa ${Number(remaining).toLocaleString('id-ID')} / ${Number(quota).toLocaleString('id-ID')} token per menit`,
     resetInSec != null ? `Reset dalam ${formatReset(resetInSec)}` : null,
     shared ? `Pool riset: ${formatTokens(shared.remaining)}/${formatTokens(shared.limit)} (${shared.urgency || 'ok'})` : null,
-  ].filter(Boolean).join(' · ')
+  ].filter(Boolean).join(' \u00b7 ')
   return (
     <span className={`m-tokens urg-${urgency}`} title={title} role="status" aria-live="polite">
       <TokenRing pct={pct} urgency={urgency} />
       <span className="m-tokens-col">
         <span className="m-tokens-n">{formatTokens(remaining)}</span>
         <span className="m-tokens-r">
-          {resetInSec != null ? formatReset(resetInSec) : '—'}
-          {urgency === 'critical' || urgency === 'empty' ? ' ⚡' : ''}
+          {resetInSec != null ? formatReset(resetInSec) : '\u2014'}
+          {urgency === 'critical' || urgency === 'empty' ? ' \u26a1' : ''}
         </span>
       </span>
       <span className="m-tokens-bar" aria-hidden>
@@ -226,7 +232,17 @@ function logUX(event, extra) {
 function loadStore() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) { const parsed = JSON.parse(raw); if (parsed && Array.isArray(parsed.chats)) return parsed }
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && Array.isArray(parsed.chats)) {
+        // Sanitize: clear any stuck streaming flags from persisted data
+        parsed.chats = parsed.chats.map(c => ({
+          ...c,
+          messages: sanitizeMessages(c.messages),
+        }))
+        return parsed
+      }
+    }
   } catch (e) { /* ignore */ }
   return { chats: [], activeId: null }
 }
@@ -302,7 +318,7 @@ function formatConferenceResult(data) {
   let out = ''
   if (data.rounds && data.rounds.length > 0) {
     for (const rd of data.rounds) {
-      out += `### 🏁 Round ${rd.round}\n\n`
+      out += `### \ud83c\udfc1 Round ${rd.round}\n\n`
       for (const r of rd.responses) {
         if (r.error) continue
         out += `**${r.model}:**\n${r.content}\n\n`
@@ -310,7 +326,7 @@ function formatConferenceResult(data) {
     }
   }
   if (data.conclusion) {
-    out += `---\n\n### ✅ Kesimpulan\n\n${data.conclusion}\n`
+    out += `---\n\n### \u2705 Kesimpulan\n\n${data.conclusion}\n`
   }
   return out.trim() || data.conclusion || 'Tidak ada hasil.'
 }
@@ -319,7 +335,8 @@ function formatConferenceResult(data) {
 function ChatMessage({ msg, isLast, loading, onEdit, onRegenerate, onRate, rating, onCopy, copied, onStreamDone, onStreamTick }) {
   if (msg.role === 'system') return null
   const isUser = msg.role === 'user'
-  const showActions = !isUser ? !msg.streaming : !loading
+  const isStreaming = Boolean(msg.streaming)
+  const showActions = !isUser ? !isStreaming : !loading
   const len = (msg.content || '').length
   const cls = ['msg', isUser ? 'user' : 'assistant']
   if (msg.entry) cls.push('entry')
@@ -344,7 +361,7 @@ function ChatMessage({ msg, isLast, loading, onEdit, onRegenerate, onRate, ratin
               <span className="msg-file-nm" title={msg.attachment.name}>{msg.attachment.name}</span>
             </div>
           )}
-          {msg.streaming && !isUser
+          {isStreaming && !isUser
             ? <StreamingText text={msg.content} onTick={onStreamTick} onDone={() => onStreamDone?.(msg.id)} />
             : <div className="msg-txt"><Markdown text={msg.content} /></div>}
           {showActions && (
@@ -377,12 +394,12 @@ function ChatMessage({ msg, isLast, loading, onEdit, onRegenerate, onRate, ratin
           )}
           {isUser && msg.status && (
             <div className="msg-meta"><span className={`msg-status ${msg.status}`} title={msg.status === 'read' ? 'Dibaca' : 'Terkirim'}>
-              {msg.status === 'read' ? '✓✓' : '✓'}
+              {msg.status === 'read' ? '\u2713\u2713' : '\u2713'}
             </span></div>
           )}
         </div>
       </div>
-      {msg.content && !msg.streaming && (
+      {msg.content && !isStreaming && (
         <div className={`msg-copy-row ${isUser ? 'user' : 'assistant'}`}>
           <button type="button" className={`msg-copy-btn ${copied ? 'done' : ''}`} onClick={() => onCopy(msg)} title={copied ? 'Disalin!' : 'Salin teks chat'}>
             {copied
@@ -408,7 +425,7 @@ function TypingIndicator() {
               <span className="typ-orbit-dot" /><span className="typ-orbit-dot" />
               <span className="typ-orbit-dot" /><span className="typ-orbit-dot" />
             </div>
-            <span className="typ-label">🗣️🧠🔍🎨 Models sedang berdiskusi…</span>
+            <span className="typ-label">\ud83d\udde3\ufe0f\ud83e\udde0\ud83d\udd0d\ud83c\udfa8 Models sedang berdiskusi\u2026</span>
           </div>
         </div>
       </div>
@@ -653,7 +670,7 @@ export default function Home() {
     return () => document.removeEventListener('keydown', onKey)
   }, [])
 
-  /* ===== SEND — ALWAYS CONFERENCE (semua model saling bicara) ===== */
+  /* ===== SEND \u2014 ALWAYS CONFERENCE (semua model saling bicara) ===== */
   const send = useCallback(async (messageList, text, attach = null) => {
     if ((!text && !attach) || loading) return
     setLoading(true); setError('')
@@ -686,7 +703,7 @@ export default function Home() {
         form.append('guestId', session?.guestId || '')
         fetchBody = form
       } else {
-        // SEMUA pertanyaan teks → conference (semua model berdiskusi)
+        // SEMUA pertanyaan teks \u2192 conference (semua model berdiskusi)
         endpoint = '/api/conference'
         fetchBody = JSON.stringify({
           topic: text,
@@ -793,7 +810,7 @@ export default function Home() {
   const rate = useCallback((msg, val) => {
     const current = ratings[msg.id]; const next = current === val ? null : val
     setRatings(prev => ({ ...prev, [msg.id]: next }))
-    showToast(next === null ? 'Penilaian dihapus' : next === 'up' ? 'Terima kasih! 👍' : 'Terima kasih atas masukannya 👎')
+    showToast(next === null ? 'Penilaian dihapus' : next === 'up' ? 'Terima kasih! \ud83d\udc4d' : 'Terima kasih atas masukannya \ud83d\udc4e')
   }, [ratings, showToast])
 
   const copy = useCallback((msg) => {
@@ -817,7 +834,7 @@ export default function Home() {
   const openChat = useCallback((id) => {
     const c = chats.find(x => x.id === id); if (!c) return
     abortRef.current?.abort(); setLoading(false)
-    setActiveId(id); setMessages(c.messages); setChatTitle(c.title)
+    setActiveId(id); setMessages(sanitizeMessages(c.messages)); setChatTitle(c.title)
     setError(''); setInput(''); setRatings({})
     setSidebarOpen(() => window.innerWidth > 768)
   }, [chats])
@@ -875,7 +892,7 @@ export default function Home() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() }
   }, [handleSubmit])
 
-  const placeholder = "Tanya apa saja — semua AI berdiskusi untukmu..."
+  const placeholder = "Tanya apa saja \u2014 semua AI berdiskusi untukmu..."
 
   const activeChats = [...chats].filter(c => !c.archived).sort((a, b) => b.updatedAt - a.updatedAt)
   const archivedChats = [...chats].filter(c => c.archived).sort((a, b) => b.updatedAt - a.updatedAt)
@@ -1010,9 +1027,9 @@ export default function Home() {
             {loading && <TypingIndicator />}
             {error && (
               <div className="err">
-                <span>⚠️</span> {error}
-                <button onClick={retry} title="Coba lagi">↻ Coba lagi</button>
-                <button onClick={() => setError('')}>✕</button>
+                <span>\u26a0\ufe0f</span> {error}
+                <button onClick={retry} title="Coba lagi">\u21bb Coba lagi</button>
+                <button onClick={() => setError('')}>\u2715</button>
               </div>
             )}
           </div>
@@ -1065,8 +1082,8 @@ export default function Home() {
               </button>
             </div>
             <div className="settings-about">
-              <div className="settings-about-ic" aria-hidden>✨</div>
-              <p className="settings-about-tx">AI ini dibuat oleh developer tunggal<br /><strong>~Andmute🎉</strong></p>
+              <div className="settings-about-ic" aria-hidden>\u2728</div>
+              <p className="settings-about-tx">AI ini dibuat oleh developer tunggal<br /><strong>~Andmute\ud83c\udf89</strong></p>
             </div>
           </div>
         </div>
