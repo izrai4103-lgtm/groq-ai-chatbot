@@ -13,38 +13,77 @@ const ANIM_KEY = 'groq_anim_v1'
 let idCounter = 0
 const nextId = () => `m${++idCounter}-${Date.now()}`
 const truncate = (s, n = 34) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
-const formatTokens = (n) => (n == null ? '—' : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n))
-const tokenLevel = (remaining, limit) => {
-  if (remaining == null || !limit) return ''
-  const pct = remaining / limit
-  return pct > 0.5 ? 'ok' : pct > 0.2 ? 'mid' : 'low'
+const formatTokens = (n) => {
+  if (n == null || !Number.isFinite(n)) return '—'
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`
+  return String(Math.round(n))
 }
 const formatReset = (s) => {
-  if (s == null || !Number.isFinite(s)) return ''
-  if (s <= 0) return '0s'
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  const sec = s % 60
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
-  if (m > 0) return `${m}:${String(sec).padStart(2, '0')}`
-  return `${sec}s`
+  if (s == null || !Number.isFinite(s)) return '—'
+  const sec = Math.max(0, Math.ceil(s))
+  if (sec <= 0) return '0:00'
+  const m = Math.floor(sec / 60)
+  const r = sec % 60
+  return `${m}:${String(r).padStart(2, '0')}`
+}
+/** Ring progress SVG — sisa token visual real-time */
+function TokenRing({ pct, urgency, size = 18 }) {
+  const r = 7
+  const c = 2 * Math.PI * r
+  const p = Math.max(0, Math.min(1, pct ?? 1))
+  const offset = c * (1 - p)
+  const stroke =
+    urgency === 'empty' || urgency === 'critical' ? '#ff6b6b'
+    : urgency === 'low' ? '#ff8f5a'
+    : urgency === 'mid' ? '#f5c451'
+    : '#19c37d'
+  return (
+    <svg className="m-tokens-ring" width={size} height={size} viewBox="0 0 18 18" aria-hidden>
+      <circle cx="9" cy="9" r={r} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="2.5" />
+      <circle
+        cx="9" cy="9" r={r} fill="none" stroke={stroke} strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={offset}
+        transform="rotate(-90 9 9)"
+        style={{ transition: 'stroke-dashoffset .35s ease, stroke .3s ease' }}
+      />
+    </svg>
+  )
 }
 function TokenBadge({ usage, now }) {
   const user = usage?.user
   if (!user) return null
-  const { remaining, quota, resetAt, serverNow } = user
-  // Koreksi clock skew: hitung sisa detik relatif ke serverNow bila ada
-  const base = typeof serverNow === 'number' ? serverNow + (now - (usage._clientFetchedAt || now)) : now
-  const resetIn = resetAt != null
-    ? Math.max(0, Math.ceil((resetAt - base) / 1000))
-    : null
+  const { remaining, quota, resetAt, serverNow, urgency: serverUrgency, pct: serverPct } = user
+  // Koreksi clock skew server↔client
+  const fetchedAt = usage._clientFetchedAt || now
+  const skewBase = typeof serverNow === 'number' ? serverNow + (now - fetchedAt) : now
+  const resetInSec = resetAt != null ? Math.max(0, (resetAt - skewBase) / 1000) : null
+  const pct = typeof serverPct === 'number' ? serverPct : (quota > 0 ? remaining / quota : 1)
+  const urgency = serverUrgency || (
+    remaining <= 0 ? 'empty' : pct <= 0.1 ? 'critical' : pct <= 0.25 ? 'low' : pct <= 0.5 ? 'mid' : 'ok'
+  )
+  const shared = usage?.shared
+  const title = [
+    `Sisa ${Number(remaining).toLocaleString('id-ID')} / ${Number(quota).toLocaleString('id-ID')} token per menit`,
+    resetInSec != null ? `Reset dalam ${formatReset(resetInSec)}` : null,
+    shared ? `Pool riset: ${formatTokens(shared.remaining)}/${formatTokens(shared.limit)} (${shared.urgency || 'ok'})` : null,
+    shared?.burnPerSec > 0 ? `Burn ~${shared.burnPerSec}/dtk` : null,
+  ].filter(Boolean).join(' · ')
+
   return (
-    <span
-      className={`m-tokens ${tokenLevel(remaining, quota)}`}
-      title={`Sisa token: ${Number(remaining).toLocaleString('id-ID')} dari ${Number(quota).toLocaleString('id-ID')} per menit. Reset otomatis setiap 1 menit.`}
-    >
-      <span className="m-tokens-n">Sisa {formatTokens(remaining)}</span>
-      {resetIn != null && <span className="m-tokens-r">· {formatReset(resetIn)}</span>}
+    <span className={`m-tokens urg-${urgency}`} title={title} role="status" aria-live="polite">
+      <TokenRing pct={pct} urgency={urgency} />
+      <span className="m-tokens-col">
+        <span className="m-tokens-n">{formatTokens(remaining)}</span>
+        <span className="m-tokens-r">
+          {resetInSec != null ? formatReset(resetInSec) : '—'}
+          {urgency === 'critical' || urgency === 'empty' ? ' ⚡' : ''}
+        </span>
+      </span>
+      <span className="m-tokens-bar" aria-hidden>
+        <span className="m-tokens-bar-fill" style={{ width: `${Math.round(pct * 100)}%` }} />
+      </span>
     </span>
   )
 }
@@ -346,49 +385,77 @@ export default function Home() {
     return () => mq.removeEventListener?.('change', apply)
   }, [])
 
-  /* Sisa token user: real-time (poll 2s + update langsung dari response API) */
+  /* ===== TOKEN REAL-TIME ENGINE =====
+   * - Adaptive poll: cepat saat kritis / dekat reset, hemat saat aman
+   * - Pause saat tab hidden (Page Visibility)
+   * - Update instan dari response chat/think/upload
+   * - Countdown 100ms + auto-refill saat window ganti
+   */
   const applyTokenUsage = useCallback((tokenUsage) => {
     if (!tokenUsage || typeof tokenUsage !== 'object') return
     setTokenUsage(prev => ({
       ...(prev || {}),
-      user: tokenUsage,
+      user: { ...(prev?.user || {}), ...tokenUsage },
       _clientFetchedAt: Date.now(),
     }))
   }, [])
 
   const pollTokenUsage = useCallback(async () => {
+    if (typeof document !== 'undefined' && document.hidden) return
     try {
       const gid = session?.guestId || ''
       const res = await fetch(`/api/token-usage?guestId=${encodeURIComponent(gid)}`, { cache: 'no-store' })
       if (!res.ok) return
       const data = await res.json()
       setTokenUsage({ ...data, _clientFetchedAt: Date.now() })
-    } catch (e) { /* server restart / offline */ }
+    } catch (e) { /* offline */ }
   }, [session])
 
+  // Adaptive interval berdasarkan urgency + sisa detik ke reset
   useEffect(() => {
+    let timer
+    const schedule = () => {
+      const u = tokenUsage?.user
+      const urgency = u?.urgency || 'ok'
+      const resetAt = u?.resetAt
+      const leftMs = resetAt ? resetAt - Date.now() : 99999
+      let interval = 4000
+      if (urgency === 'empty' || urgency === 'critical') interval = 800
+      else if (urgency === 'low') interval = 1500
+      else if (urgency === 'mid') interval = 2500
+      if (leftMs > 0 && leftMs < 5000) interval = Math.min(interval, 500)
+      timer = setTimeout(async () => {
+        await pollTokenUsage()
+        schedule()
+      }, interval)
+    }
     pollTokenUsage()
-    const id = setInterval(pollTokenUsage, 2000)
-    return () => clearInterval(id)
-  }, [pollTokenUsage])
+    schedule()
+    const onVis = () => { if (!document.hidden) pollTokenUsage() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [pollTokenUsage, tokenUsage?.user?.urgency, tokenUsage?.user?.resetAt])
 
-  /* Countdown reset token: tick tiap 250ms biar terasa real-time */
+  /* Countdown halus 100ms */
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 250)
+    const id = setInterval(() => setNow(Date.now()), 100)
     return () => clearInterval(id)
   }, [])
 
-  /* Saat countdown habis → refresh sisa token ke penuh */
+  /* Tepat di batas reset → poll segera (isi ulang kuota) */
   useEffect(() => {
     const resetAt = tokenUsage?.user?.resetAt
     if (!resetAt) return
     const left = resetAt - Date.now()
-    if (left > 0 && left < 1500) {
-      const t = setTimeout(() => pollTokenUsage(), left + 50)
+    if (left > 0 && left < 2000) {
+      const t = setTimeout(() => pollTokenUsage(), Math.max(0, left) + 30)
       return () => clearTimeout(t)
     }
     if (left <= 0) pollTokenUsage()
-  }, [now, tokenUsage, pollTokenUsage])
+  }, [now, tokenUsage?.user?.resetAt, pollTokenUsage])
 
   useEffect(() => {
     saveProfile(profile)
