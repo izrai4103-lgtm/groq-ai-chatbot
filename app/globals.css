@@ -1054,94 +1054,165 @@ html,body{background:#F1F5F9!important;color:#0F172A}
 
 
 
+
 /* =========================================================
-   WhatsApp-style chat bubbles (user gray | AI purple)
+   Chat bubbles — WhatsApp layout + soft 3D (~60%)
    ========================================================= */
 .chat-inner{
-  display:flex;flex-direction:column;gap:4px;
-  padding:16px 14px 24px!important;
+  display:flex;flex-direction:column;gap:8px;
+  padding:16px 14px 28px!important;
 }
-.msg{width:100%;display:flex;background:transparent!important;padding:4px 0!important;margin:0!important;border:none!important}
+.msg{
+  width:100%;display:flex;background:transparent!important;
+  padding:2px 0!important;margin:0!important;border:none!important
+}
 .msg.user{justify-content:flex-end}
 .msg.assistant{justify-content:flex-start}
 
 .msg.user .msg-row{
   flex-direction:row-reverse;
   max-width:min(82%, 520px);
-  margin-left:auto;margin-right:0;width:fit-content
+  margin-left:auto;margin-right:0;width:fit-content;
+  filter:drop-shadow(0 4px 10px rgba(15,23,42,.10))
 }
 .msg.assistant .msg-row{
   flex-direction:row;
   max-width:min(88%, 560px);
-  margin-right:auto;margin-left:0;width:fit-content
+  margin-right:auto;margin-left:0;width:fit-content;
+  filter:drop-shadow(0 6px 14px rgba(91,76,219,.22))
 }
 
-.msg-av{width:28px;flex-shrink:0;display:flex;align-items:flex-end;padding-bottom:2px}
-.av{width:28px;height:28px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
-.av.user{background:#9CA3AF;color:#fff}
-.av.assistant{background:#EDE9FE;padding:0}
+.msg-av{
+  width:30px;flex-shrink:0;display:flex;align-items:flex-end;padding-bottom:3px
+}
+.av{
+  width:30px;height:30px;border-radius:50%;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:600;
+  box-shadow:0 2px 6px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.35)
+}
+.av.user{
+  background:linear-gradient(160deg,#B0B5BE 0%,#8B919A 55%,#6F757E 100%);
+  color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.2)
+}
+.av.assistant{
+  background:linear-gradient(160deg,#EDE9FE 0%,#DDD6FE 100%);padding:0
+}
 .av-img{width:100%;height:100%;object-fit:cover;border-radius:50%}
 
-/* Bubble body */
+/* Bubble body — soft 3D */
 .msg-c{
-  flex:0 1 auto;min-width:0;padding:8px 12px 6px!important;
-  position:relative;box-shadow:0 1px 1px rgba(0,0,0,.06)
+  flex:0 1 auto;min-width:0;
+  padding:10px 14px 8px!important;
+  position:relative;
+  transform:translateZ(0);
+  transition:transform .15s ease, box-shadow .15s ease
 }
 .msg.user .msg-c{
-  background:#E5E7EB!important; /* abu-abu WhatsApp-like */
+  background:
+    linear-gradient(165deg, #F3F4F6 0%, #E5E7EB 48%, #D1D5DB 100%)!important;
   color:#111827!important;
-  border-radius:14px 14px 4px 14px!important;
+  border-radius:16px 16px 5px 16px!important;
+  border:1px solid rgba(255,255,255,.7);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.85) inset,
+    0 -1px 0 rgba(0,0,0,.06) inset,
+    0 4px 12px rgba(15,23,42,.10),
+    0 1px 2px rgba(15,23,42,.06)!important
 }
 .msg.assistant .msg-c{
-  background:linear-gradient(145deg,#7C6BFF 0%,#5B4CDB 100%)!important; /* ungu */
+  background:
+    linear-gradient(155deg, #9B8CFF 0%, #7C6BFF 42%, #5B4CDB 100%)!important;
   color:#fff!important;
-  border-radius:14px 14px 14px 4px!important;
+  border-radius:16px 16px 16px 5px!important;
+  border:1px solid rgba(255,255,255,.22);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.35) inset,
+    0 -2px 6px rgba(0,0,0,.12) inset,
+    0 6px 16px rgba(91,76,219,.28),
+    0 2px 4px rgba(15,23,42,.08)!important
+}
+
+/* subtle tail via pseudo for WA feel */
+.msg.user .msg-c::after,
+.msg.assistant .msg-c::after{
+  content:"";position:absolute;bottom:0;width:10px;height:10px;pointer-events:none
+}
+.msg.user .msg-c::after{
+  right:-3px;
+  background:linear-gradient(225deg, transparent 50%, #D1D5DB 50%);
+  border-bottom-left-radius:2px
+}
+.msg.assistant .msg-c::after{
+  left:-3px;
+  background:linear-gradient(135deg, transparent 50%, #5B4CDB 50%);
+  border-bottom-right-radius:2px
+}
+
+.msg:hover .msg-c{transform:translateY(-1px)}
+.msg.user:hover .msg-c{
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 6px 16px rgba(15,23,42,.14),
+    0 2px 4px rgba(15,23,42,.08)!important
+}
+.msg.assistant:hover .msg-c{
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.4) inset,
+    0 -2px 6px rgba(0,0,0,.12) inset,
+    0 8px 20px rgba(91,76,219,.34),
+    0 2px 6px rgba(15,23,42,.1)!important
 }
 
 .msg-txt{
-  font-size:14.5px!important;line-height:1.45!important;
+  font-size:14.5px!important;line-height:1.5!important;
   white-space:pre-wrap;word-wrap:break-word
 }
 .msg.user .msg-txt{color:#111827!important}
-.msg.assistant .msg-txt{color:#fff!important}
-.msg.assistant .msg-txt a{color:#E0D9FF!important;text-decoration:underline}
+.msg.assistant .msg-txt{color:#fff!important;text-shadow:0 1px 0 rgba(0,0,0,.12)}
+.msg.assistant .msg-txt a{color:#EDE9FE!important;text-decoration:underline}
 .msg.assistant .msg-txt code{
-  background:rgba(0,0,0,.2)!important;border-color:transparent!important;color:#F5F3FF!important
+  background:rgba(0,0,0,.22)!important;border:none!important;color:#F5F3FF!important;
+  border-radius:5px;padding:1px 5px
 }
 .msg.assistant .msg-txt pre{
-  background:rgba(0,0,0,.18)!important;border:none!important;color:#F5F3FF!important
+  background:rgba(0,0,0,.2)!important;border:none!important;color:#F5F3FF!important;
+  border-radius:10px;padding:10px
 }
-.msg.assistant .msg-txt strong{color:#fff!important}
+.msg.assistant .msg-txt strong,
 .msg.assistant .msg-txt h1,
 .msg.assistant .msg-txt h2,
 .msg.assistant .msg-txt h3{color:#fff!important}
+.msg.user .msg-txt code{
+  background:rgba(0,0,0,.08)!important;border:none!important;color:#111!important
+}
 
-.msg.user .msg-txt code{background:#D1D5DB!important;border-color:transparent!important;color:#111!important}
+.msg-file{
+  background:rgba(0,0,0,.06)!important;border:none!important;
+  border-radius:10px;margin-bottom:6px;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.06)
+}
+.msg.assistant .msg-file{background:rgba(255,255,255,.14)!important}
+.msg.assistant .msg-file-nm{color:rgba(255,255,255,.92)!important}
 
-.msg-file{background:rgba(0,0,0,.06)!important;border:none!important;border-radius:8px;margin-bottom:6px}
-.msg.assistant .msg-file{background:rgba(255,255,255,.12)!important}
-.msg.assistant .msg-file-nm{color:rgba(255,255,255,.9)!important}
-
-.msg-acts{margin-top:4px;opacity:0}
+.msg-acts{margin-top:5px;opacity:0;transition:opacity .15s}
 .msg:hover .msg-acts,.msg-acts.force{opacity:1}
 .msg.user .act-btn{color:#6B7280!important}
-.msg.assistant .act-btn{color:rgba(255,255,255,.85)!important}
-.msg.assistant .act-btn:hover{background:rgba(255,255,255,.15)!important;color:#fff!important}
-.msg.user .act-btn:hover{background:rgba(0,0,0,.06)!important;color:#111!important}
+.msg.assistant .act-btn{color:rgba(255,255,255,.88)!important}
+.msg.assistant .act-btn:hover{background:rgba(255,255,255,.18)!important;color:#fff!important}
+.msg.user .act-btn:hover{background:rgba(0,0,0,.07)!important;color:#111!important}
 
 .msg-meta{margin-top:2px}
-.msg-status{font-size:11px;color:#9CA3AF}
+.msg-status{font-size:11px;color:#9CA3AF;text-shadow:none}
 .msg-status.read{color:#53BDEB}
 
-/* Typing bubble follows AI style */
-.msg.assistant .typing.chat{
-  background:transparent;color:#fff;padding:2px 0
-}
-.msg.assistant .typ-label{color:rgba(255,255,255,.9)}
-.msg.assistant .typ-dot span{background:#fff}
+.msg.assistant .typing.chat{background:transparent;color:#fff;padding:2px 0}
+.msg.assistant .typ-label{color:rgba(255,255,255,.92)}
+.msg.assistant .typ-dot span{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)}
 
 @media(max-width:480px){
   .msg.user .msg-row,.msg.assistant .msg-row{max-width:92%}
-  .msg-av{width:24px}
-  .av{width:24px;height:24px;font-size:11px}
+  .msg-av{width:26px}
+  .av{width:26px;height:26px;font-size:11px}
+  .msg-c{padding:9px 12px 7px!important}
 }
