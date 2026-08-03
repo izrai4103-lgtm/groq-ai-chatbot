@@ -1576,3 +1576,36 @@ button:disabled{cursor:not-allowed}
     bottom:calc(96px + env(safe-area-inset-bottom, 0px))!important
   }
 }
+
+
+/* === Copy-paste under bubble === */
+.msg-copy-row{
+  display:flex;align-items:center;padding:2px 8px 6px;
+  max-width:min(82%, 520px)
+}
+.msg-copy-row.user{justify-content:flex-end;margin-left:auto;margin-right:38px}
+.msg-copy-row.assistant{justify-content:flex-start;margin-right:auto;margin-left:38px}
+.msg-copy-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 11px;border-radius:999px;
+  border:1px solid #E2E8F0;background:#fff;
+  color:#64748B;font-size:12px;font-weight:500;
+  box-shadow:0 1px 3px rgba(15,23,42,.06);
+  transition:transform .15s ease, background .15s, color .15s, border-color .15s, box-shadow .15s
+}
+.msg-copy-btn svg{width:13px;height:13px;flex-shrink:0}
+.msg-copy-btn:hover{
+  background:#F8FAFC;color:#459AFF;border-color:#BFDBFE;
+  transform:translateY(-1px);
+  box-shadow:0 3px 10px rgba(69,154,255,.15)
+}
+.msg-copy-btn:active{transform:scale(.96)}
+.msg-copy-btn.done{
+  background:#ECFDF5;border-color:#A7F3D0;color:#059669
+}
+.msg-copy-btn.done:hover{background:#D1FAE5;color:#047857}
+@media(max-width:480px){
+  .msg-copy-row.user{margin-right:28px}
+  .msg-copy-row.assistant{margin-left:28px}
+  .msg-copy-btn{padding:4px 9px;font-size:11px}
+}
