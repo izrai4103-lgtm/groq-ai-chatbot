@@ -1,6 +1,10 @@
 import { runConference } from '@/lib/engine/engine'
 import { deductUserTokens, flushTokenUsage, getCompletionRecorded, getUserTokenStatus } from '@/lib/token-usage'
 
+// Konferensi memanggil banyak model (web research + 4 model × round + kesimpulan),
+// butuh waktu lebih dari default fungsi serverless.
+export const maxDuration = 60
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => null)) as {
