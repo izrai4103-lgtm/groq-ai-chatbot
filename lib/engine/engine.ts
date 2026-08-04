@@ -14,6 +14,7 @@ import { thinkAndResearch } from '../code-executor'
 import { holdConference } from '../model-conference'
 import { callGroqWithTools, EngineError } from './groq'
 import { generateRolling } from './rolling-output'
+import { think10x, needsDeepThink } from './think10x'
 import type { GroqToolDefinition, GroqToolMessage } from './groq'
 import { AI_TOOLS, TOOL_GUIDANCE_PROMPT, executeTool } from '@/lib/tool-sandbox'
 import { BASE_SYSTEM_PROMPT } from '../schema-prompt'
@@ -360,6 +361,27 @@ export async function runChat(
         }
       }
       if (done) break
+    }
+
+    // --- Think10x: CoT + Self-Consistency + Reflection (≈ChatGPT quality @110 tok) ---
+    if (finalContent && needsDeepThink(lastUserText)) {
+      try {
+        const deep = await think10x(lastUserText, {
+          kind: 'thinking',
+          priorContext: [researchContext, thinkingContext, finalContent].filter(Boolean).join('\n').slice(0, 900),
+          force: true,
+        })
+        if (deep.usedDeep && deep.content && deep.content.trim().length > finalContent.trim().length * 0.7) {
+          finalContent = deep.content
+          meta.think10x = { stages: deep.stages, used: true }
+        } else if (deep.usedDeep && deep.content) {
+          // merge insights
+          finalContent = `${finalContent.trim()}\n\n${deep.content.trim()}`
+          meta.think10x = { stages: deep.stages, used: true, merged: true }
+        }
+      } catch {
+        /* Think10x opsional */
+      }
     }
 
     // --- ROG: perluas jawaban meski max_tokens=110 (sandbox → all models) ---

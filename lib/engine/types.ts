@@ -55,6 +55,8 @@ export interface EngineMeta {
   }
   /** Rolling Output Generation (detail walau max_tokens kecil) */
   rog?: { rounds: number; truncated: boolean }
+  /** Deep reasoning stack CoT+SC+Reflection */
+  think10x?: { stages: string[]; used: boolean; merged?: boolean }
 }
 
 export interface EngineResult {
