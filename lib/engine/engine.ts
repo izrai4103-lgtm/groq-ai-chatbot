@@ -388,15 +388,15 @@ export async function runChat(
       thinking: wantsThinking && thinkingContext.length > 0,
       creative: wantsCreative,
       agents: [
-        { id: 'chat', key: 'GEMINI_API_KEY', task: 'Jawaban utama' },
+        'Chat [GEMINI_API_KEY] — jawaban utama',
         ...(wantsResearch && researchContext
-          ? [{ id: 'research', key: 'GEMINI_API_KEY_2', task: 'Riset fakta & web' }]
+          ? ['Research [GEMINI_API_KEY_2] — riset fakta & web']
           : []),
         ...(wantsThinking && thinkingContext
-          ? [{ id: 'thinking', key: 'GEMINI_API_KEY_3', task: 'Analisis mendalam' }]
+          ? ['Thinking [GEMINI_API_KEY_3] — analisis mendalam']
           : []),
         ...(wantsCreative
-          ? [{ id: 'creative', key: 'GEMINI_API_KEY_4', task: 'Polish & gaya tulis' }]
+          ? ['Creative [GEMINI_API_KEY_4] — polish & gaya tulis']
           : []),
       ],
     }
