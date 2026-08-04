@@ -53,6 +53,8 @@ export interface EngineMeta {
     creative: boolean
     agents: string[]
   }
+  /** Rolling Output Generation (detail walau max_tokens kecil) */
+  rog?: { rounds: number; truncated: boolean }
 }
 
 export interface EngineResult {
