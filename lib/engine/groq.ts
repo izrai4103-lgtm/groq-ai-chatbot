@@ -159,7 +159,7 @@ export async function callGroq(
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
-      const hint = res.status === 429 ? ' — kuota model penuh, coba lagi sebentar' : ''
+      const hint = res.status === 429 ? ' — kuota Gemini API habis (batas gratis). Tunggu ±1 menit atau ganti/isi ulang API key di Vercel.' : ''
       throw new EngineError('AI_MODEL_ERROR', `Model AI error (${res.status})${hint}`, {
         status: res.status,
         detail,
@@ -296,14 +296,14 @@ export async function callGroqWithTools(
         }
         const retryDetail = await retry.res.text().catch(() => '')
         console.error('[model] retry tool_use_failed gagal:', retry.res.status, retryDetail.slice(0, 400))
-        const hint2 = retry.res.status === 429 ? ' — kuota model penuh, coba lagi sebentar' : ''
+        const hint2 = retry.res.status === 429 ? ' — kuota Gemini API habis. Tunggu sebentar atau cek billing/API key.' : ''
         throw new EngineError('AI_MODEL_ERROR', `Model AI error (${retry.res.status})${hint2}`, {
           status: retry.res.status,
           detail: retryDetail.slice(0, 500),
         })
       }
       console.error('[model] panggilan gagal:', res.status, detail.slice(0, 400))
-      const hint = res.status === 429 ? ' — kuota model penuh, coba lagi sebentar' : ''
+      const hint = res.status === 429 ? ' — kuota Gemini API habis (batas gratis). Tunggu ±1 menit atau ganti/isi ulang API key di Vercel.' : ''
       throw new EngineError('AI_MODEL_ERROR', `Model AI error (${res.status})${hint}`, {
         status: res.status,
         detail: detail.slice(0, 500),
