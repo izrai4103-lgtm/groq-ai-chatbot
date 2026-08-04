@@ -103,7 +103,7 @@ async function askModel(systemPrompt, userContent, opts = {}) {
   const maxTokens = opts.maxTokens || 1000
   const timeoutMs = opts.timeoutMs || 30_000
 
-  const keys = getFeatureKeys('research')
+  const keys = getFeatureKeys('chat')
   if (keys.length === 0) throw new Error('AI_MODEL_UNAVAILABLE')
   const key = keys[0]
 
