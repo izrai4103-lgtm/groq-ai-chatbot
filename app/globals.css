@@ -1834,3 +1834,147 @@ a,.sidebar-item,.chat-item,.topbar-btn,.comp-btn,.act-btn,.hist-clear,.switch{-w
   .msg.typing-msg .typing-bubble{animation:none!important}
   .typing-dot{opacity:.8}
 }
+
+
+/* === COMPOSER v3 — ChatGPT / Claude style floating bar === */
+.composer-area{
+  padding:8px 16px 18px!important;
+  padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px))!important;
+  background:linear-gradient(180deg, transparent 0%, rgba(241,245,249,.85) 28%, #F1F5F9 100%)!important;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px)
+}
+.composer-wrap{
+  max-width:min(var(--w, 720px), 100%)!important;
+  margin:0 auto!important
+}
+.composer{
+  display:flex!important;
+  align-items:flex-end!important;
+  gap:6px!important;
+  background:#fff!important;
+  border:1.5px solid #E2E8F0!important;
+  border-radius:28px!important;
+  padding:10px 10px 10px 14px!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 4px 16px rgba(15,23,42,.06),
+    0 12px 32px rgba(15,23,42,.06)!important;
+  transition:
+    border-color .22s ease,
+    box-shadow .28s cubic-bezier(.22,.61,.36,1),
+    transform .2s ease!important
+}
+.composer:hover{
+  border-color:#CBD5E1!important;
+  box-shadow:
+    0 1px 0 #fff inset,
+    0 6px 20px rgba(15,23,42,.08),
+    0 16px 40px rgba(15,23,42,.07)!important
+}
+.composer:focus-within{
+  border-color:rgba(99,102,241,.55)!important;
+  box-shadow:
+    0 1px 0 #fff inset,
+    0 0 0 4px rgba(99,102,241,.12),
+    0 8px 28px rgba(99,102,241,.14),
+    0 16px 40px rgba(15,23,42,.08)!important;
+  transform:translateY(-1px)
+}
+.composer textarea{
+  flex:1!important;
+  border:none!important;
+  background:transparent!important;
+  color:#0F172A!important;
+  font-size:15.5px!important;
+  line-height:1.55!important;
+  outline:none!important;
+  padding:8px 6px!important;
+  resize:none!important;
+  min-height:28px!important;
+  max-height:180px!important;
+  letter-spacing:-.01em
+}
+.composer textarea::placeholder{
+  color:#94A3B8!important;
+  font-weight:400
+}
+.comp-btn{
+  width:40px!important;
+  height:40px!important;
+  border-radius:14px!important;
+  border:none!important;
+  background:transparent!important;
+  color:#94A3B8!important;
+  display:inline-flex!important;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  transition:background .18s, color .18s, transform .15s!important
+}
+.comp-btn:hover{
+  background:#F1F5F9!important;
+  color:#6366F1!important;
+  transform:scale(1.05)
+}
+.comp-btn.on{
+  color:#4F46E5!important;
+  background:rgba(99,102,241,.12)!important;
+  box-shadow:inset 0 0 0 1px rgba(99,102,241,.2)
+}
+.comp-btn svg{width:20px!important;height:20px!important}
+
+.send-btn{
+  width:44px!important;
+  height:44px!important;
+  border-radius:50%!important;
+  border:none!important;
+  background:#E2E8F0!important;
+  color:#64748B!important;
+  display:inline-flex!important;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  box-shadow:0 1px 2px rgba(15,23,42,.06)!important;
+  transition:all .22s cubic-bezier(.22,.61,.36,1)!important
+}
+.send-btn.active{
+  background:linear-gradient(145deg,#818CF8 0%, #6366F1 45%, #4F46E5 100%)!important;
+  color:#fff!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.35) inset,
+    0 6px 16px rgba(79,70,229,.4)!important;
+  animation:none!important
+}
+.send-btn.active:hover:not(:disabled){
+  filter:brightness(1.08);
+  transform:scale(1.07)!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.4) inset,
+    0 10px 24px rgba(79,70,229,.48)!important
+}
+.send-btn:disabled{opacity:.45;cursor:not-allowed}
+.send-btn.stop{
+  background:linear-gradient(145deg,#475569,#1E293B)!important;
+  color:#fff!important;
+  animation:none!important
+}
+.send-btn svg{width:20px;height:20px}
+
+.file-chip{
+  background:#fff!important;
+  border:1px solid #E2E8F0!important;
+  border-radius:14px!important;
+  box-shadow:0 2px 8px rgba(15,23,42,.05)!important;
+  margin-bottom:10px!important
+}
+
+@media(max-width:640px){
+  .composer-area{padding:6px 10px 12px!important;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))!important}
+  .composer{
+    border-radius:24px!important;
+    padding:8px 8px 8px 12px!important
+  }
+  .send-btn,.send-btn.active{width:40px!important;height:40px!important}
+  .comp-btn{width:36px!important;height:36px!important}
+}
