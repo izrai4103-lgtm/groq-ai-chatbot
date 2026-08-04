@@ -695,7 +695,7 @@ export default function Home() {
     return () => document.removeEventListener('keydown', onKey)
   }, [])
 
-  /* ===== SEND \u2014 ALWAYS CONFERENCE (semua model saling bicara) ===== */
+  /* ===== SEND — chat normal via /api/chat ===== */
   const send = useCallback(async (messageList, text, attach = null) => {
     if ((!text && !attach) || loading) return
     setLoading(true); setError('')
@@ -734,11 +734,12 @@ export default function Home() {
           guestId: session?.guestId || '',
         })
       } else {
-        endpoint = '/api/conference'
+        // Chat normal → /api/chat (cepat, 1 model). Conference terlalu lambat / timeout.
+        endpoint = '/api/chat'
         fetchBody = JSON.stringify({
-          topic: text,
-          rounds: 1,
+          messages: messageList.map(m => ({ role: m.role, content: m.content })),
           guestId: session?.guestId || '',
+          clientTokenHint,
         })
       }
 
@@ -766,7 +767,8 @@ export default function Home() {
         website = data.website || null
         content = data.content || (data.success === false ? data.error : '') || ''
       } else {
-        content = data.content || ''
+        // /api/chat, /api/upload, dll.
+        content = data.content || data.answer || ''
       }
 
       if (!content) throw new Error(data?.error || 'Respon kosong')
