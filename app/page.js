@@ -34,6 +34,27 @@ function sanitizeMessages(msgs) {
   return msgs.map(m => m.streaming ? { ...m, streaming: false } : m)
 }
 
+/* ===== AI Website Agent — deteksi perintah kontrol website ===== */
+const WEB_AGENT_STOP = new Set(['ini', 'itu', 'saya', 'aku', 'kami', 'anda', 'kamu', 'yang', 'apa', 'bagaimana', 'di', 'ke', 'dari', 'untuk', 'dengan'])
+const WEB_AGENT_RE = /(?:^|\s)(?:buka|akses|kunjungi|open|visit|browse|kendalikan|kontroli|kontrol|take over)\s+website\b/i
+const WEB_AGENT_RE2 = /(?:^|\s)(?:isi|isiin|fill)\s+(?:form|kolom|kotak|field|input|formulir)\b/i
+const WEB_AGENT_URL = /(https?:\/\/|www\.)[^\s]+|(?:^|\s)[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:\/\S*)?/i
+const WEB_AGENT_VERBS = /(?:buka|open|visit|browse|kunjungi|isi|isiin|fill|login|kendalikan|kontrol)/i
+
+function websiteAgentIntent(text) {
+  if (!text) return false
+  const t = text.trim()
+  if (t.length > 300) return false
+  if (WEB_AGENT_RE.test(t)) {
+    const m = t.match(/\bwebsite\s+([a-z0-9-]+)/i)
+    if (m && WEB_AGENT_STOP.has(m[1].toLowerCase())) return false
+    return true
+  }
+  if (WEB_AGENT_RE2.test(t) && WEB_AGENT_URL.test(t)) return true
+  if (WEB_AGENT_URL.test(t) && WEB_AGENT_VERBS.test(t)) return true
+  return false
+}
+
 /* ===== REAL-TIME TOKEN ENGINE ===== */
 const TOKEN_LS_KEY = 'zanco_token_rt_v1'
 const TOKEN_WINDOW_MS = 60_000
@@ -356,6 +377,30 @@ function ChatMessage({ msg, isLast, loading, onEdit, onRegenerate, onRate, ratin
           {isStreaming && !isUser
             ? <StreamingText text={msg.content} onTick={onStreamTick} onDone={() => onStreamDone?.(msg.id)} />
             : <div className="msg-txt"><Markdown text={msg.content} /></div>}
+          {!isUser && msg.website && (
+            <div className="web-agent-card">
+              <div className="web-agent-hd">{'\ud83c\udf10'} Website Agent</div>
+              {msg.website.url && (
+                <div className="web-agent-row">
+                  <span className="web-agent-lbl">URL</span>
+                  <a href={msg.website.url} target="_blank" rel="noopener noreferrer">{msg.website.url}</a>
+                </div>
+              )}
+              {msg.website.title && (
+                <div className="web-agent-row"><span className="web-agent-lbl">Judul</span><span className="web-agent-val">{msg.website.title}</span></div>
+              )}
+              {Array.isArray(msg.website.actions) && msg.website.actions.length > 0 && (
+                <ul className="web-agent-actions">
+                  {msg.website.actions.map((a, i) => <li key={i}>{a}</li>)}
+                </ul>
+              )}
+              {msg.website.screenshotUrl && (
+                <a href={msg.website.screenshotUrl} target="_blank" rel="noopener noreferrer" className="web-agent-shot-wrap">
+                  <img className="web-agent-shot" src={msg.website.screenshotUrl} alt="Screenshot halaman" loading="lazy" />
+                </a>
+              )}
+            </div>
+          )}
           {showActions && (
             <div className="msg-acts">
               {isUser ? (
@@ -430,6 +475,7 @@ export default function Home() {
 
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [agentMode, setAgentMode] = useState(false)
   const [error, setError] = useState('')
   const [showScroll, setShowScroll] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -668,6 +714,7 @@ export default function Home() {
 
     try {
       let endpoint, fetchBody
+      const webAgent = !attach && (agentMode || websiteAgentIntent(text))
 
       if (attach) {
         endpoint = '/api/upload'
@@ -677,6 +724,12 @@ export default function Home() {
         form.append('history', JSON.stringify(messageList.map(m => ({ role: m.role, content: m.content }))))
         form.append('guestId', session?.guestId || '')
         fetchBody = form
+      } else if (webAgent) {
+        endpoint = '/api/website'
+        fetchBody = JSON.stringify({
+          instruction: text,
+          guestId: session?.guestId || '',
+        })
       } else {
         endpoint = '/api/conference'
         fetchBody = JSON.stringify({
@@ -703,8 +756,12 @@ export default function Home() {
       if (data.tokenUsage) applyTokenUsage(data.tokenUsage)
 
       let content = ''
+      let website = null
       if (endpoint === '/api/conference') {
         content = formatConferenceResult(data)
+      } else if (endpoint === '/api/website') {
+        website = data.website || null
+        content = data.content || (data.success === false ? data.error : '') || ''
       } else {
         content = data.content || ''
       }
@@ -714,7 +771,7 @@ export default function Home() {
       logUX('delivered')
       setMessages(prev => [
         ...prev.map(m => m.role === 'user' ? { ...m, status: 'read' } : m),
-        { id: nextId(), role: 'assistant', content, streaming: true },
+        { id: nextId(), role: 'assistant', content, streaming: true, website },
       ])
     } catch (err) {
       if (err.name === 'AbortError') return
@@ -725,7 +782,7 @@ export default function Home() {
       abortRef.current = null
       pollTokenUsage()
     }
-  }, [loading, animPref, pollTokenUsage, applyTokenUsage, session, deductLocalTokens])
+  }, [loading, animPref, pollTokenUsage, applyTokenUsage, session, deductLocalTokens, agentMode])
 
   const handleSubmit = useCallback((e) => {
     e?.preventDefault()
@@ -1014,6 +1071,12 @@ export default function Home() {
                 </button>
               </div>
             )}
+            <div className="composer-mode">
+              <button type="button" className={`web-toggle ${agentMode ? 'on' : ''}`} onClick={() => setAgentMode(v => !v)} aria-pressed={agentMode} title="Mode Kontrol Website: agent bisa membuka situs lain, mengisi form, dan klik elemen.">
+                {'\ud83c\udf10'} Kontrol Website{agentMode ? ' \u2022 AKTIF' : ''}
+              </button>
+              {agentMode && <span className="composer-mode-hint">Contoh: "buka website google.com lalu isi pencarian cuaca"</span>}
+            </div>
             <form className="composer" onSubmit={handleSubmit}>
               <button type="button" className="comp-btn" onClick={() => fileRef.current?.click()} title="Lampirkan file">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" /></svg>

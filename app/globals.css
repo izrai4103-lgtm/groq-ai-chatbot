@@ -1737,3 +1737,43 @@ a,.sidebar-item,.chat-item,.topbar-btn,.comp-btn,.act-btn,.hist-clear,.switch{-w
   .toast{animation:none}
   .comp-btn.on::after{animation:none}
 }
+
+/* ===== AI Website Agent — kontrol website (buka/isi/klik) ===== */
+.composer-mode{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.web-toggle{
+  border:1px solid var(--border);background:var(--bg-input);color:var(--text-sec);
+  border-radius:30px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;
+  transition:all .25s cubic-bezier(.34,1.4,.64,1);display:inline-flex;align-items:center;gap:6px
+}
+.web-toggle:hover{border-color:var(--purple-soft);color:var(--purple);transform:translateY(-1px)}
+.web-toggle.on{
+  background:var(--accent-grad);color:#fff;border-color:transparent;
+  box-shadow:0 4px 14px rgba(86,97,246,.35)
+}
+.composer-mode-hint{font-size:11.5px;color:var(--text-muted)}
+
+.web-agent-card{
+  margin-top:10px;background:var(--bg-input);border:1px solid var(--border);border-radius:14px;
+  padding:12px 14px;box-shadow:var(--shadow-card);overflow:hidden
+}
+.web-agent-hd{
+  font-size:12px;font-weight:700;letter-spacing:.4px;color:var(--purple);text-transform:uppercase;
+  margin-bottom:8px;display:flex;align-items:center;gap:6px
+}
+.web-agent-row{display:flex;gap:8px;align-items:baseline;font-size:13px;margin-bottom:6px}
+.web-agent-lbl{flex-shrink:0;font-weight:600;color:var(--text-muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;min-width:44px}
+.web-agent-row a{color:var(--blue-600);text-decoration:none;word-break:break-all}
+.web-agent-row a:hover{text-decoration:underline}
+.web-agent-val{color:var(--text-sec)}
+.web-agent-actions{list-style:none;display:flex;flex-direction:column;gap:4px;margin:6px 0 4px;padding:0}
+.web-agent-actions li{
+  font-size:12.5px;color:var(--text-sec);background:var(--bg-hover);border:1px solid var(--border);
+  border-radius:8px;padding:5px 10px;padding-left:26px;position:relative
+}
+.web-agent-actions li::before{
+  content:'';position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  width:8px;height:8px;border-radius:50%;background:var(--green)
+}
+.web-agent-shot-wrap{display:block;margin-top:8px;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.web-agent-shot{display:block;width:100%;max-height:320px;object-fit:cover;transition:transform .3s ease}
+.web-agent-shot-wrap:hover .web-agent-shot{transform:scale(1.015)}
