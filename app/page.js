@@ -1002,37 +1002,6 @@ export default function Home() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M6 9l6 6 6-6" /></svg>
         </button>
 
-        <div className="composer-area">
-          <div className="composer-wrap">
-            {file && (
-              <div className="file-chip">
-                {file.thumb && <img className="file-chip-thumb" src={file.thumb} alt="" />}
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" /></svg>
-                {file.name}
-                <button onClick={() => setFile(null)} title="Hapus lampiran">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
-                </button>
-              </div>
-            )}
-            <form className="composer" onSubmit={handleSubmit}>
-              <button type="button" className="comp-btn" onClick={() => fileRef.current?.click()} title="Lampirkan file">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" /></svg>
-              </button>
-              <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={handleFile} />
-              <textarea ref={taRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey}
-                placeholder={placeholder} disabled={loading} rows={1} />
-              {loading ? (
-                <button type="button" className="send-btn stop" onClick={stopGeneration} title="Hentikan">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
-                </button>
-              ) : (
-                <button type="submit" disabled={!input.trim() && !file} className={`send-btn ${input.trim() || file ? 'active' : ''}`} title="Kirim pesan">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
-                </button>
-              )}
-            </form>
-          </div>
-        </div>
       </main>
 
       {showSettings && (
