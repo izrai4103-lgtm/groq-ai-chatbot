@@ -46,9 +46,12 @@ function websiteAgentIntent(text) {
   const t = text.trim()
   if (t.length > 300) return false
   if (WEB_AGENT_RE.test(t)) {
-    const m = t.match(/\bwebsite\s+([a-z0-9-]+)/i)
-    if (m && WEB_AGENT_STOP.has(m[1].toLowerCase())) return false
-    return true
+    // Perlu target setelah "website" (domain/URL) supaya pertanyaan
+    // seperti "kapan kamu bisa buka website?" tidak salah-trigger agent.
+    const m = t.match(/\bwebsite\s+([a-z0-9][a-z0-9./:-]*)/i)
+    if (m && !WEB_AGENT_STOP.has(m[1].toLowerCase())) return true
+    if (WEB_AGENT_URL.test(t)) return true
+    return false
   }
   if (WEB_AGENT_RE2.test(t) && WEB_AGENT_URL.test(t)) return true
   if (WEB_AGENT_URL.test(t) && WEB_AGENT_VERBS.test(t)) return true
