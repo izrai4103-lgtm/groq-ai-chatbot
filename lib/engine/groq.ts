@@ -11,31 +11,31 @@ export const MODELS: Record<ModelKind, ModelSpec> = {
   chat: {
     feature: 'chat',
     model: process.env.CHAT_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-    maxTokens: 110,
+    maxTokens: 2048,
     name: 'Chat',
   },
   research: {
     feature: 'research',
     model: process.env.RESEARCH_MODEL || process.env.GEMINI_FLASH_MODEL || 'gemini-flash-latest',
-    maxTokens: 110,
+    maxTokens: 2048,
     name: 'Research',
   },
   thinking: {
     feature: 'thinking',
     model: process.env.THINKING_MODEL || process.env.GEMINI_FLASH_MODEL || 'gemini-flash-latest',
-    maxTokens: 110,
+    maxTokens: 2048,
     name: 'Thinking',
   },
   creative: {
     feature: 'creative',
     model: process.env.CREATIVE_MODEL || process.env.GEMINI_FLASH_MODEL || 'gemini-flash-latest',
-    maxTokens: 110,
+    maxTokens: 2048,
     name: 'Creative',
   },
   upload: {
     feature: 'upload',
     model: process.env.UPLOAD_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-    maxTokens: 110,
+    maxTokens: 2048,
     name: 'Upload',
   },
 }
@@ -324,7 +324,7 @@ export async function callGroqWithTools(
       result.toolCalls.some(tc => {
         try { JSON.parse(tc.arguments); return false } catch { return true }
       })
-    if (truncated && maxTokens < 110) {
+    if (truncated && maxTokens < 2048) {
       const retry = await doFetch(0.2, 2048)
       if (retry.res.ok) {
         const data2 = await retry.res.json() as Parameters<typeof mapResult>[0]

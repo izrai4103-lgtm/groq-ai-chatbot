@@ -250,7 +250,7 @@ export async function runChat(
           'Kamu Thinking Agent. Tugasmu menganalisis secara mendalam, memberikan sudut pandang berbeda, dan menyusun pemikiran terstruktur. Singkat tapi tajam.',
           [{ role: 'user', content: thinkPrompt }] as GroqToolMessage[],
           [] as GroqToolDefinition[],
-          { maxTokens: 110, timeoutMs: 10_000 },
+          { maxTokens: 2048, timeoutMs: 10_000 },
         )
         if (thinkResult.content) {
           thinkingContext = '\n\n🧠 ANALISIS DARI THINKING AGENT:\n' + normalizeOutput(thinkResult.content)
@@ -293,7 +293,7 @@ export async function runChat(
         systemPrompt,
         chatMessages,
         [...(AI_TOOLS as GroqToolDefinition[]), ...(WEBSITE_TOOLS as GroqToolDefinition[])],
-        toolIntent ? { maxTokens: 110 } : undefined,
+        toolIntent ? { maxTokens: 2048 } : undefined,
       )
 
       if (modelResult.toolCalls.length === 0) {
@@ -394,7 +394,7 @@ export async function runChat(
                 'Lanjutkan dan lengkapi jawaban di atas agar lebih detail dan utuh. Jangan mengulang. Akhiri dengan [[SELESAI]] bila sudah lengkap.',
             },
           ],
-          { maxRounds: 6, maxTokens: 110, temperature: 0.6 },
+          { maxRounds: 4, maxTokens: 512, temperature: 0.6 },
         )
         if (rolled.content && rolled.content.length > finalContent.length) {
           // Gabungkan: base + kelanjutan tanpa duplikasi kasar
@@ -417,7 +417,7 @@ export async function runChat(
           'Kamu Creative Agent. Tugasmu memperkaya dan memoles teks berikut agar lebih menarik, mudah dibaca, dan engaging. Pertahankan semua fakta dan referensi, hanya tingkatkan kualitas tulisan. Jangan menambah informasi baru yang tidak ada di teks asli.',
           [{ role: 'user', content: `Polish teks ini:\n\n${finalContent}` }] as GroqToolMessage[],
           [] as GroqToolDefinition[],
-          { maxTokens: 110, temperature: 0.8, timeoutMs: 10_000 },
+          { maxTokens: 2048, temperature: 0.8, timeoutMs: 10_000 },
         )
         if (creativeResult.content && creativeResult.content.trim().length > finalContent.length * 0.5) {
           finalContent = creativeResult.content
@@ -433,7 +433,7 @@ export async function runChat(
                 { role: 'assistant', content: finalContent },
                 { role: 'user', content: 'Lanjutkan tanpa mengulang.' },
               ],
-              { maxRounds: 3, maxTokens: 110, temperature: 0.7 },
+              { maxRounds: 3, maxTokens: 2048, temperature: 0.7 },
             )
             if (more.content && more.content.length > finalContent.length) {
               finalContent = more.content
@@ -453,7 +453,7 @@ export async function runChat(
           systemPrompt,
           [...chatMessages, { role: 'user', content: 'Jawab langsung dengan satu atau dua kalimat tanpa memanggil tool.' }] as GroqToolMessage[],
           [] as GroqToolDefinition[],
-          { maxTokens: 110, temperature: 0.3 },
+          { maxTokens: 2048, temperature: 0.3 },
         )
         if (fb.content && fb.content.trim()) {
           const normFb = normalizeOutput(fb.content)
@@ -574,7 +574,7 @@ export async function runResearch(
       sysPrompt,
       [{ role: 'user', content: question }] as GroqToolMessage[],
       [] as GroqToolDefinition[],
-      { maxTokens: 110 },
+      { maxTokens: 2048 },
     )
 
     return { answer: normalizeOutput(result.content || ''), sources }
@@ -635,7 +635,7 @@ export async function runCreative(
       sysPrompt,
       [{ role: 'user', content: prompt }] as GroqToolMessage[],
       [] as GroqToolDefinition[],
-      { maxTokens: 110, temperature: 0.9 },
+      { maxTokens: 2048, temperature: 0.9 },
     )
 
     const output = normalizeOutput(result.content || '')

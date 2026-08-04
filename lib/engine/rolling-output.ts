@@ -92,7 +92,7 @@ export async function generateRolling(
 ): Promise<{ content: string; rounds: number; truncated: boolean }> {
   const maxRounds = Math.max(1, Math.min(options.maxRounds ?? DEFAULT_MAX_ROUNDS, 12))
   const temperature = options.temperature ?? 0.7
-  const maxTokens = options.maxTokens ?? 110
+  const maxTokens = options.maxTokens ?? 512
   const timeoutMs = options.timeoutMs ?? 12_000
 
   const sys = systemPrompt.includes('ROG')
