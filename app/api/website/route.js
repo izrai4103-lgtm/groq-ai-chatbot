@@ -19,7 +19,7 @@
 
 import { getUserTokenStatus, deductUserTokens, getCompletionRecorded, flushTokenUsage } from '@/lib/token-usage'
 import { getFeatureKeys } from '@/lib/provider-keys.js'
-import { newPage } from '@/lib/headless.js'
+import { newPage, getBrowser } from '@/lib/headless.js'
 
 export const maxDuration = 60
 export const runtime = 'nodejs'
@@ -275,7 +275,27 @@ async function runAgent(instruction) {
     return { success: false, error: String(plan.refuse) }
   }
 
-  const { page, context } = await newPage()
+  let page = null
+  let context = null
+  try {
+    const opened = await newPage()
+    page = opened.page
+    context = opened.context
+  } catch (err) {
+    // Diagnostik: cek apakah proses Chromium di-kill (SIGKILL/OOM) atau keluar sendiri
+    try {
+      const browser = await getBrowser()
+      const proc = browser && browser.process && browser.process()
+      if (proc) {
+        console.error('[website-agent] chromium proc:', {
+          exitCode: proc.exitCode,
+          signalCode: proc.signalCode,
+          killed: proc.killed,
+        })
+      }
+    } catch {}
+    throw err
+  }
   try {
     let url = toUrl(plan && plan.url)
     if (!url && plan && plan.search) url = searchUrl(plan.search)
@@ -404,7 +424,8 @@ async function runAgent(instruction) {
       website: { url: finalUrl, title: finalTitle, actions, screenshotUrl },
     }
   } finally {
-    await context.close().catch(() => {})
+    if (context) await context.close().catch(() => {})
+    else if (page) await page.close().catch(() => {})
   }
 }
 
