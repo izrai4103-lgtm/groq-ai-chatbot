@@ -13,6 +13,7 @@ import { JailbreakScanner, JAILBREAK_POLICY_PROMPT, verdictToError } from '../ja
 import { thinkAndResearch } from '../code-executor'
 import { holdConference } from '../model-conference'
 import { callGroqWithTools, EngineError } from './groq'
+import { generateRolling } from './rolling-output'
 import type { GroqToolDefinition, GroqToolMessage } from './groq'
 import { AI_TOOLS, TOOL_GUIDANCE_PROMPT, executeTool } from '@/lib/tool-sandbox'
 import { BASE_SYSTEM_PROMPT } from '../schema-prompt'
@@ -211,15 +212,32 @@ export async function runChat(
 
           // Research model synthesize data
           try {
-            const researchSynthesis = await callGroqWithTools(
-              'research',
-              'Kamu Research Agent. Rangkum data web berikut menjadi insight singkat (3-5 poin) yang relevan untuk menjawab pertanyaan user. Padat dan akurat.',
-              [{ role: 'user', content: `Pertanyaan: ${lastUserText}\n\nData:\n${researchContext}` }] as GroqToolMessage[],
-              [] as GroqToolDefinition[],
-              { maxTokens: 110, timeoutMs: 10_000 },
-            )
-            if (researchSynthesis.content) {
-              researchContext = '\n\n🔍 INSIGHT DARI RESEARCH AGENT:\n' + normalizeOutput(researchSynthesis.content)
+            let researchText = ''
+            try {
+              const researchSynthesis = await callGroqWithTools(
+                'research',
+                'Kamu Research Agent. Rangkum data web menjadi insight padat (poin-poin) relevan untuk user.',
+                [{ role: 'user', content: `Pertanyaan: ${lastUserText}\n\nData:\n${researchContext}` }] as GroqToolMessage[],
+                [] as GroqToolDefinition[],
+                { maxTokens: 110, timeoutMs: 10_000 },
+              )
+              researchText = researchSynthesis.content || ''
+            } catch { /* ignore */ }
+            if (researchText) {
+              try {
+                const more = await generateRolling(
+                  'research',
+                  'Kamu Research Agent. Lanjutkan insight riset, padat dan akurat. Akhiri [[SELESAI]] bila cukup.',
+                  [
+                    { role: 'user', content: `Pertanyaan: ${lastUserText}` },
+                    { role: 'assistant', content: researchText },
+                    { role: 'user', content: 'Lanjutkan insight. Jangan mengulang.' },
+                  ],
+                  { maxRounds: 3, maxTokens: 110 },
+                )
+                if (more.content) researchText = more.content
+              } catch { /* keep first */ }
+              researchContext = '\n\n🔍 INSIGHT DARI RESEARCH AGENT:\n' + normalizeOutput(researchText)
             }
           } catch { /* pakai raw results kalau synthesis gagal */ }
         }
@@ -344,6 +362,39 @@ export async function runChat(
       if (done) break
     }
 
+    // --- ROG: perluas jawaban meski max_tokens=110 (sandbox → all models) ---
+    if (finalContent && finalContent.trim().length > 0 && finalContent.trim().length < 320) {
+      try {
+        const rolled = await generateRolling(
+          opts.model || 'chat',
+          systemPrompt,
+          [
+            ...chatMessages.filter((m) => m.role === 'user' || m.role === 'assistant').map((m) => ({
+              role: m.role as 'user' | 'assistant' | 'system',
+              content: typeof m.content === 'string' ? m.content : '',
+            })),
+            { role: 'assistant', content: finalContent },
+            {
+              role: 'user',
+              content:
+                'Lanjutkan dan lengkapi jawaban di atas agar lebih detail dan utuh. Jangan mengulang. Akhiri dengan [[SELESAI]] bila sudah lengkap.',
+            },
+          ],
+          { maxRounds: 6, maxTokens: 110, temperature: 0.6 },
+        )
+        if (rolled.content && rolled.content.length > finalContent.length) {
+          // Gabungkan: base + kelanjutan tanpa duplikasi kasar
+          const extra = rolled.content.startsWith(finalContent.slice(0, 40))
+            ? rolled.content
+            : `${finalContent.trim()} ${rolled.content.trim()}`
+          finalContent = extra
+          meta.rog = { rounds: rolled.rounds, truncated: rolled.truncated }
+        }
+      } catch {
+        /* ROG opsional */
+      }
+    }
+
     // --- TAHAP 4: Creative (GEMINI_API_KEY_4) — polish jawaban jika perlu ---
     if (wantsCreative && finalContent) {
       try {
@@ -356,6 +407,24 @@ export async function runChat(
         )
         if (creativeResult.content && creativeResult.content.trim().length > finalContent.length * 0.5) {
           finalContent = creativeResult.content
+        }
+        // Creative juga lewat ROG bila masih pendek
+        if (finalContent.trim().length < 280) {
+          try {
+            const more = await generateRolling(
+              'creative',
+              'Kamu Creative Agent. Lengkapi teks agar lebih utuh dan enak dibaca. Jangan mengarang fakta baru. Akhiri [[SELESAI]] bila cukup.',
+              [
+                { role: 'user', content: 'Lengkapi teks berikut.' },
+                { role: 'assistant', content: finalContent },
+                { role: 'user', content: 'Lanjutkan tanpa mengulang.' },
+              ],
+              { maxRounds: 3, maxTokens: 110, temperature: 0.7 },
+            )
+            if (more.content && more.content.length > finalContent.length) {
+              finalContent = more.content
+            }
+          } catch { /* ignore */ }
         }
       } catch { /* creative polish opsional, pakai jawaban chat langsung */ }
     }
