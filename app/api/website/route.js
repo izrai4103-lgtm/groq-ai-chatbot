@@ -105,44 +105,65 @@ async function askModel(systemPrompt, userContent, opts = {}) {
 
   const keys = getFeatureKeys('chat')
   if (keys.length === 0) throw new Error('AI_MODEL_UNAVAILABLE')
-  const key = keys[0]
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  const baseBody = {
+    temperature,
+    max_tokens: maxTokens,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userContent },
+    ],
+  }
+
+  // Failover antar key fitur + retry singkat saat kena 429
+  const tryKeys = async (signal) => {
+    let lastStatus = 0
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i]
+      const res = await fetch(key.url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${key.key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...baseBody, model: key.model }),
+        signal,
+      }).catch(() => null)
+      if (res && res.ok) return { status: 200, res }
+      lastStatus = (res && res.status) || 0
+    }
+    return { status: lastStatus, res: null }
+  }
+
+  let out
   try {
-    const res = await fetch(key.url, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${key.key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: key.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userContent },
-        ],
-        temperature,
-        max_tokens: maxTokens,
-      }),
-      signal: controller.signal,
-    })
-    if (!res.ok) {
-      const hint = res.status === 429 ? ' — kuota model penuh, coba lagi sebentar' : ''
-      throw new Error(`AI error (${res.status})${hint}`)
+    out = await tryKeys(controller.signal)
+    if (out.status === 429) {
+      await sleep(5000)
+      out = await tryKeys(controller.signal)
     }
-    const data = await res.json()
-    const text = (data.choices?.[0]?.message?.content || '').trim()
-    if (!text) throw new Error('AI respon kosong')
-    if (json) {
-      const parsed = extractJson(text)
-      if (!parsed) throw new Error('AI tidak mengembalikan JSON valid')
-      return parsed
+    if (out.status !== 200) {
+      if (out.status === 0) throw new Error('Gagal terhubung ke model AI')
+      const hint = out.status === 429 ? ' \u2014 kuota model penuh, coba lagi sebentar' : ''
+      throw new Error(`AI error (${out.status})${hint}`)
     }
-    return text
   } catch (err) {
-    if (err && err.name === 'AbortError') throw new Error('AI timeout')
+    if (err && (err.name === 'AbortError' || err.name === 'TimeoutError')) throw new Error('AI timeout')
     throw err
   } finally {
     clearTimeout(timer)
   }
+
+  const res = out.res
+  const data = await res.json()
+  const text = (data.choices?.[0]?.message?.content || '').trim()
+  if (!text) throw new Error('AI respon kosong')
+  if (json) {
+    const parsed = extractJson(text)
+    if (!parsed) throw new Error('AI tidak mengembalikan JSON valid')
+    return parsed
+  }
+  return text
 }
 
 /* ============================================================
