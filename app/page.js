@@ -440,24 +440,25 @@ function ChatMessage({ msg, isLast, loading, onEdit, onRegenerate, onRate, ratin
 
 function TypingIndicator() {
   return (
-    <div className="msg assistant">
+    <div className="msg assistant typing-msg">
       <div className="msg-row">
-        <div className="msg-av"><div className="av assistant"><img src="/ai-avatar.png" alt="AI" className="av-img" /></div></div>
-        <div className="msg-c">
-          <div className="typing chat typing-orbit" aria-label="Mengetik">
-            <div className="typ-orbit" role="status">
-              <span className="typ-orbit-dot" /><span className="typ-orbit-dot" />
-              <span className="typ-orbit-dot" /><span className="typ-orbit-dot" />
-              <span className="typ-orbit-dot" /><span className="typ-orbit-dot" />
-              <span className="typ-orbit-dot" /><span className="typ-orbit-dot" />
-            </div>
-            <span className="typ-label">{'\ud83d\udde3\ufe0f\ud83e\udde0\ud83d\udd0d\ud83c\udfa8'} Models sedang berdiskusi{'\u2026'}</span>
+        <div className="msg-av">
+          <div className="av assistant">
+            <img src="/ai-avatar.png" alt="AI" className="av-img" />
+          </div>
+        </div>
+        <div className="msg-c typing-bubble" aria-label="AI sedang mengetik" role="status" aria-live="polite">
+          <div className="typing-indicator">
+            <span className="typing-dot" />
+            <span className="typing-dot" />
+            <span className="typing-dot" />
           </div>
         </div>
       </div>
     </div>
   )
 }
+
 
 /* ===== MAIN APP ===== */
 export default function Home() {
