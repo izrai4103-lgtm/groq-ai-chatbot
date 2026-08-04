@@ -41,6 +41,20 @@ const WEB_AGENT_RE2 = /(?:^|\s)(?:isi|isiin|fill)\s+(?:form|kolom|kotak|field|in
 const WEB_AGENT_URL = /(https?:\/\/|www\.)[^\s]+|(?:^|\s)[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:\/\S*)?/i
 const WEB_AGENT_VERBS = /(?:buka|open|visit|browse|kunjungi|isi|isiin|fill|login|kendalikan|kontrol)/i
 
+
+/* ===== YouTube Music Agent ===== */
+const MUSIC_RE = /(?:putar|play|mainkan|dengarkan)\s+(?:musik|music|lagu|song|video)?/i
+const YT_RE = /youtube\.com|youtu\.be/i
+function musicAgentIntent(text) {
+  if (!text) return false
+  const t = text.trim()
+  if (t.length > 400) return false
+  // "buka youtube ... putar musik X" atau "putar lagu X"
+  if (MUSIC_RE.test(t)) return true
+  if (YT_RE.test(t) && /(?:putar|play|mainkan|musik|music|lagu|song)/i.test(t)) return true
+  return false
+}
+
 function websiteAgentIntent(text) {
   if (!text) return false
   const t = text.trim()
@@ -380,6 +394,7 @@ function ChatMessage({ msg, isLast, loading, onEdit, onRegenerate, onRate, ratin
           {isStreaming && !isUser
             ? <StreamingText text={msg.content} onTick={onStreamTick} onDone={() => onStreamDone?.(msg.id)} />
             : <div className="msg-txt"><Markdown text={msg.content} /></div>}
+                    {!isUser && msg.music && <MusicVoiceCard music={msg.music} />}
           {!isUser && msg.website && (
             <div className="web-agent-card">
               <div className="web-agent-hd">{'\ud83c\udf10'} Website Agent</div>
@@ -434,6 +449,65 @@ function ChatMessage({ msg, isLast, loading, onEdit, onRegenerate, onRate, ratin
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+
+/* ===== Pesan suara musik (WhatsApp-style) ===== */
+function MusicVoiceCard({ music }) {
+  const [playing, setPlaying] = useState(false)
+  const iframeRef = useRef(null)
+  if (!music?.videoId) return null
+  const embed = music.embedUrl || `https://www.youtube-nocookie.com/embed/${music.videoId}?rel=0&modestbranding=1&playsinline=1`
+  const playEmbed = `${embed}${embed.includes('?') ? '&' : '?'}autoplay=1`
+
+  return (
+    <div className="music-voice">
+      <div className="music-voice-inner">
+        <button
+          type="button"
+          className={`music-play ${playing ? 'on' : ''}`}
+          aria-label={playing ? 'Pause' : 'Play'}
+          onClick={() => setPlaying(p => !p)}
+        >
+          {playing ? (
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          )}
+        </button>
+        <div className="music-meta">
+          <div className="music-title" title={music.title}>{music.title}</div>
+          <div className="music-sub">
+            <span>{music.channel || 'YouTube'}</span>
+            {music.durationLabel ? <span> · {music.durationLabel}</span> : null}
+          </div>
+          <div className="music-wave" aria-hidden="true">
+            {[0,1,2,3,4,5,6,7].map(i => (
+              <span key={i} className={`music-bar ${playing ? 'anim' : ''}`} style={{ animationDelay: `${i * 0.08}s` }} />
+            ))}
+          </div>
+        </div>
+        {music.thumbnail && (
+          <img className="music-thumb" src={music.thumbnail} alt="" loading="lazy" />
+        )}
+      </div>
+      {playing && (
+        <div className="music-embed-wrap">
+          <iframe
+            ref={iframeRef}
+            className="music-embed"
+            src={playEmbed}
+            title={music.title || 'YouTube'}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      )}
+      <a className="music-yt-link" href={music.url || `https://www.youtube.com/watch?v=${music.videoId}`} target="_blank" rel="noopener noreferrer">
+        Buka di YouTube ↗
+      </a>
     </div>
   )
 }
@@ -718,7 +792,8 @@ export default function Home() {
 
     try {
       let endpoint, fetchBody
-      const webAgent = !attach && (agentMode || websiteAgentIntent(text))
+      const musicAgent = !attach && musicAgentIntent(text)
+      const webAgent = !attach && !musicAgent && (agentMode || websiteAgentIntent(text))
 
       if (attach) {
         endpoint = '/api/upload'
@@ -728,6 +803,12 @@ export default function Home() {
         form.append('history', JSON.stringify(messageList.map(m => ({ role: m.role, content: m.content }))))
         form.append('guestId', session?.guestId || '')
         fetchBody = form
+      } else if (musicAgent) {
+        endpoint = '/api/music'
+        fetchBody = JSON.stringify({
+          instruction: text,
+          guestId: session?.guestId || '',
+        })
       } else if (webAgent) {
         endpoint = '/api/website'
         fetchBody = JSON.stringify({
@@ -762,22 +843,26 @@ export default function Home() {
 
       let content = ''
       let website = null
+      let music = null
       if (endpoint === '/api/conference') {
         content = formatConferenceResult(data)
+      } else if (endpoint === '/api/music') {
+        music = data.music || null
+        website = data.website || null
+        content = data.content || ''
       } else if (endpoint === '/api/website') {
         website = data.website || null
         content = data.content || (data.success === false ? data.error : '') || ''
       } else {
-        // /api/chat, /api/upload, dll.
         content = data.content || data.answer || ''
       }
 
-      if (!content) throw new Error(data?.error || 'Respon kosong')
+      if (!content && !music) throw new Error(data?.error || 'Respon kosong')
 
       logUX('delivered')
       setMessages(prev => [
         ...prev.map(m => m.role === 'user' ? { ...m, status: 'read' } : m),
-        { id: nextId(), role: 'assistant', content, streaming: true, website },
+        { id: nextId(), role: 'assistant', content: content || '🎵', streaming: true, website, music },
       ])
     } catch (err) {
       if (err.name === 'AbortError') return
@@ -1081,7 +1166,7 @@ export default function Home() {
               <button type="button" className={`web-toggle ${agentMode ? 'on' : ''}`} onClick={() => setAgentMode(v => !v)} aria-pressed={agentMode} title="Mode Kontrol Website: agent bisa membuka situs lain, mengisi form, dan klik elemen.">
                 {'\ud83c\udf10'} Kontrol Website{agentMode ? ' \u2022 AKTIF' : ''}
               </button>
-              {agentMode && <span className="composer-mode-hint">Contoh: "buka website google.com lalu isi pencarian cuaca"</span>}
+              {agentMode && <span className="composer-mode-hint">Contoh: "buka youtube.com dan putar musik Bohemian Rhapsody"</span>}
             </div>
             <form className="composer" onSubmit={handleSubmit}>
               <button type="button" className="comp-btn" onClick={() => fileRef.current?.click()} title="Lampirkan file">
