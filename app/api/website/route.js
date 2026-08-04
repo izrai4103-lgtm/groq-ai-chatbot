@@ -124,7 +124,10 @@ async function askModel(systemPrompt, userContent, opts = {}) {
       }),
       signal: controller.signal,
     })
-    if (!res.ok) throw new Error(`AI error (${res.status})`)
+    if (!res.ok) {
+      const hint = res.status === 429 ? ' — kuota model penuh, coba lagi sebentar' : ''
+      throw new Error(`AI error (${res.status})${hint}`)
+    }
     const data = await res.json()
     const text = (data.choices?.[0]?.message?.content || '').trim()
     if (!text) throw new Error('AI respon kosong')
@@ -433,6 +436,11 @@ async function runAgent(instruction) {
   } finally {
     if (context) await context.close().catch(() => {})
     else if (page) await page.close().catch(() => {})
+    // Bersihkan cookie biar sesi antar-user tidak tercampur
+    try {
+      const b = await getBrowser()
+      if (b && b.defaultBrowserContext) await b.defaultBrowserContext().clearCookies()
+    } catch {}
   }
 }
 
