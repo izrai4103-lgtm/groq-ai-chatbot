@@ -17,7 +17,7 @@ import { callGroq } from './groq'
 import { generateRolling } from './rolling-output'
 import type { ChatMessage, ModelKind } from './types'
 
-const MAX_TOK = 512
+const MAX_TOK = 250
 
 function stripMeta(s: string): string {
   return (s || '')
@@ -49,7 +49,7 @@ async function oneShot(
       kind,
       system,
       [{ role: 'user', content: user }],
-      { maxTokens: MAX_TOK, temperature, timeoutMs: 12_000 },
+      { maxTokens: MAX_TOK, temperature, timeoutMs: 8_000 },
     )
   } catch {
     return ''
@@ -178,7 +178,7 @@ export async function think10x(
             'Lanjutkan dan perjelas poin penting, contoh, dan kesimpulan. Jangan mengulang. Akhiri [[SELESAI]] jika sudah lengkap.',
         },
       ] as ChatMessage[],
-      { maxRounds: 5, maxTokens: MAX_TOK, temperature: 0.5 },
+      { maxRounds: 2, maxTokens: MAX_TOK, temperature: 0.5 },
     )
     if (rolled.content && rolled.content.length > draft.length) {
       draft = rolled.content

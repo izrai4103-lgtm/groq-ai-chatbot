@@ -57,7 +57,7 @@ export interface EngineMeta {
   rog?: { rounds: number; truncated: boolean }
   /** Deep reasoning stack CoT+SC+Reflection */
   think10x?: { stages: string[]; used: boolean; merged?: boolean }
-  claudeResearch?: { hops: number; used: boolean }
+  claudeResearch?: { hops: number; used: boolean; fastPath?: boolean }
 }
 
 export interface EngineResult {

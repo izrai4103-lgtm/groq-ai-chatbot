@@ -10,7 +10,7 @@ import { callGroq } from './groq'
 import { generateRolling } from './rolling-output'
 import type { ModelKind } from './types'
 
-const MAX_TOK = 512
+const MAX_TOK = 250
 
 function strip(s: string): string {
   return (s || '')
@@ -42,7 +42,7 @@ export async function synthesizeClaudeResearch(
           content: `Pertanyaan: ${question}\n\nBukti:\n${evidenceText.slice(0, 3500)}\n\nFakta kunci:`,
         },
       ],
-      { maxTokens: MAX_TOK, temperature: 0.2, timeoutMs: 12_000 },
+      { maxTokens: MAX_TOK, temperature: 0.2, timeoutMs: 8_000 },
     )
   } catch {
     facts = ''
@@ -60,7 +60,7 @@ export async function synthesizeClaudeResearch(
           content: `Pertanyaan: ${question}\n\nFakta:\n${strip(facts) || evidenceText.slice(0, 1500)}\n\nJawaban:`,
         },
       ],
-      { maxTokens: MAX_TOK, temperature: 0.3, timeoutMs: 12_000 },
+      { maxTokens: MAX_TOK, temperature: 0.3, timeoutMs: 8_000 },
     )
   } catch {
     answer = facts
@@ -69,7 +69,8 @@ export async function synthesizeClaudeResearch(
   let out = strip(answer) || strip(facts)
   if (!out) return { insight: '', hops: 0 }
 
-  // Hop 3: ROG expand
+  // Hop 3: ROG expand hanya jika masih pendek
+  if (out.length >= 120) return { insight: out, hops: 2 }
   try {
     const rolled = await generateRolling(
       kind,
@@ -83,7 +84,7 @@ export async function synthesizeClaudeResearch(
             'Perjelas dengan detail dari fakta, tambah konteks, sebut sumber. Jangan mengarang. Akhiri [[SELESAI]].',
         },
       ],
-      { maxRounds: 4, maxTokens: MAX_TOK, temperature: 0.4 },
+      { maxRounds: 2, maxTokens: MAX_TOK, temperature: 0.4 },
     )
     if (rolled.content && rolled.content.length > out.length) {
       out = strip(rolled.content)

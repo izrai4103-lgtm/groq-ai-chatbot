@@ -12,7 +12,7 @@
 import { callGroq } from './groq'
 import type { ChatMessage, ModelKind } from './types'
 
-const DEFAULT_MAX_ROUNDS = 8 // 8 × 110 ≈ 880 token efektif
+const DEFAULT_MAX_ROUNDS = 2 // 8 × 110 ≈ 880 token efektif
 const CONTINUE_MARKER = '[[LANJUTKAN]]'
 const STOP_MARKER = '[[SELESAI]]'
 
@@ -90,10 +90,10 @@ export async function generateRolling(
   messages: ChatMessage[],
   options: RollingOptions = {},
 ): Promise<{ content: string; rounds: number; truncated: boolean }> {
-  const maxRounds = Math.max(1, Math.min(options.maxRounds ?? DEFAULT_MAX_ROUNDS, 12))
+  const maxRounds = Math.max(1, Math.min(options.maxRounds ?? DEFAULT_MAX_ROUNDS, 3))
   const temperature = options.temperature ?? 0.7
-  const maxTokens = options.maxTokens ?? 512
-  const timeoutMs = options.timeoutMs ?? 12_000
+  const maxTokens = options.maxTokens ?? 250
+  const timeoutMs = options.timeoutMs ?? 8_000
 
   const sys = systemPrompt.includes('ROG')
     ? systemPrompt
