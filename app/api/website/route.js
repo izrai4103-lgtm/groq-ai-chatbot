@@ -351,32 +351,39 @@ async function runAgent(instruction) {
       const mapped = Array.isArray(map.fills) ? map.fills : []
       for (const mf of mapped) {
         if (!mf || !mf.selector || mf.value === undefined || mf.value === null) continue
+        let r = null
         try {
-          const r = await fillField(page, mf.selector, mf.value)
+          r = await fillField(page, mf.selector, mf.value)
           if (r && r.ok) {
             didSomething = true
-            actions.push(r.desc)
+            if (!actions.includes(r.desc)) actions.push(r.desc)
           }
         } catch (e) {
-          actions.push('Gagal isi ' + (mf.selector || '?') + ': ' + (e && e.message ? e.message : 'error'))
+          const desc = 'Gagal isi ' + (mf.selector || '?') + ': ' + (e && e.message ? e.message : 'error')
+          if (!actions.includes(desc)) actions.push(desc)
         }
+        // Tandai field sudah diisi: cocokkan label ATAU nilai persis.
         const lbl = String(mf.label || '').trim().toLowerCase()
-        if (lbl) {
-          pending = pending.filter((f) => {
-            const fLabel = String((f && f.label) || '').trim().toLowerCase()
-            return !(fLabel && (fLabel.includes(lbl) || lbl.includes(fLabel)))
-          })
-        }
+        const val = String(mf.value ?? '')
+        pending = pending.filter((f) => {
+          const fLabel = String((f && f.label) || '').trim().toLowerCase()
+          const fVal = String((f && f.value) ?? '')
+          const labelMatch = lbl && fLabel && (fLabel.includes(lbl) || lbl.includes(fLabel))
+          const valMatch = val && fVal === val
+          return !(labelMatch || valMatch)
+        })
       }
 
       const clickSel = map.click || null
       if (clickSel) {
         try {
           await clickSelector(page, clickSel)
-          actions.push('Mengklik ' + clickSel)
+          const desc = 'Mengklik ' + clickSel
+          if (!actions.includes(desc)) actions.push(desc)
           didSomething = true
         } catch (e) {
-          actions.push('Gagal klik ' + clickSel + ': ' + (e && e.message ? e.message : 'error'))
+          const desc = 'Gagal klik ' + clickSel + ': ' + (e && e.message ? e.message : 'error')
+          if (!actions.includes(desc)) actions.push(desc)
         }
         submit = false
         clickLabel = null
