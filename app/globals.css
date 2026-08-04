@@ -1014,34 +1014,85 @@ html,body{background:#F1F5F9!important;color:#0F172A}
 }
 /* msg colors controlled by WhatsApp bubble block below */
 
-/* Composer bar — Figma type field */
+/* Composer bar — modern AI chat (ChatGPT / Claude style floating pill) */
 .composer-area{
-  flex-shrink:0;padding:16px 0 8px!important;background:transparent!important
+  flex-shrink:0;
+  padding:12px 16px 16px!important;
+  padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px))!important;
+  background:transparent!important
 }
-.composer-wrap{max-width:100%!important;margin:0!important}
+.composer-wrap{max-width:720px!important;margin:0 auto!important;width:100%}
 .composer{
-  display:flex;align-items:center;gap:12px;
-  background:#fff!important;border:none!important;border-radius:30px!important;
-  padding:16px 18px 16px 28px!important;
-  box-shadow:0 8px 24px rgba(0,0,0,.08)!important;min-height:72px
+  display:flex;align-items:flex-end;gap:10px;
+  background:rgba(255,255,255,.95)!important;
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid rgba(226,232,240,.95)!important;
+  border-radius:28px!important;
+  padding:10px 12px 10px 16px!important;
+  min-height:56px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 4px 16px rgba(15,23,42,.06),
+    0 12px 40px rgba(15,23,42,.08)!important;
+  transition:box-shadow .25s ease, border-color .25s ease, transform .2s ease
+}
+.composer:focus-within{
+  border-color:rgba(99,102,241,.4)!important;
+  box-shadow:
+    0 1px 0 #fff inset,
+    0 0 0 3px rgba(99,102,241,.12),
+    0 8px 28px rgba(99,102,241,.12),
+    0 14px 40px rgba(15,23,42,.08)!important
 }
 .composer textarea{
   flex:1;border:0!important;background:transparent!important;resize:none;
-  font-size:14px!important;color:#334155!important;outline:none;max-height:120px;
-  font-family:Inter,system-ui,sans-serif
+  font-size:15px!important;line-height:1.5!important;
+  color:#0F172A!important;outline:none!important;
+  max-height:140px;min-height:24px;padding:8px 4px!important;
+  font-family:Inter,system-ui,-apple-system,sans-serif;
+  caret-color:#6366F1
 }
-.composer textarea::placeholder{color:#64748B}
-.comp-btn{color:#94A3B8!important}
-.comp-btn.on{color:#5661F6!important;background:rgba(86,97,246,.1)!important}
+.composer textarea::placeholder{
+  color:#94A3B8!important;font-weight:400
+}
+.comp-btn{
+  width:40px!important;height:40px!important;border-radius:12px!important;
+  color:#94A3B8!important;flex-shrink:0;
+  transition:background .15s, color .15s, transform .15s
+}
+.comp-btn:hover{
+  background:#F1F5F9!important;color:#4F46E5!important;transform:scale(1.05)
+}
+.comp-btn.on{
+  color:#4F46E5!important;
+  background:rgba(99,102,241,.12)!important
+}
 .send-btn{
-  width:48px!important;height:48px!important;border-radius:60px!important;
-  border:none;background:#E2E8F0;color:#64748B;flex-shrink:0
+  width:44px!important;height:44px!important;border-radius:50%!important;
+  border:none;background:#E2E8F0!important;color:#94A3B8!important;
+  flex-shrink:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 2px rgba(15,23,42,.06)!important;
+  transition:transform .18s cubic-bezier(.34,1.4,.64,1), box-shadow .2s, background .2s, color .2s
 }
 .send-btn.active{
-  background:#5661F6!important;color:#fff!important;
-  box-shadow:0 4px 12px rgba(86,97,246,.3)!important;animation:none!important
+  background:linear-gradient(145deg, #818CF8 0%, #6366F1 50%, #4F46E5 100%)!important;
+  color:#fff!important;
+  box-shadow:
+    0 4px 14px rgba(79,70,229,.4),
+    inset 0 1px 0 rgba(255,255,255,.35)!important;
+  animation:none!important
 }
-.send-btn.stop{background:#334155!important;color:#fff!important}
+.send-btn.active:hover:not(:disabled){
+  transform:scale(1.08)!important;
+  filter:brightness(1.06);
+  box-shadow:0 8px 22px rgba(79,70,229,.45), inset 0 1px 0 rgba(255,255,255,.4)!important
+}
+.send-btn.stop{
+  background:linear-gradient(145deg,#64748B,#1E293B)!important;
+  color:#fff!important
+}
+.send-btn:disabled{opacity:.45;cursor:not-allowed}
 
 .m-tokens{background:rgba(69,154,255,.12)!important;color:#02489B!important}
 .topbar-btn{
@@ -1976,5 +2027,30 @@ a,.sidebar-item,.chat-item,.topbar-btn,.comp-btn,.act-btn,.hist-clear,.switch{-w
     padding:8px 8px 8px 12px!important
   }
   .send-btn,.send-btn.active{width:40px!important;height:40px!important}
+  .comp-btn{width:36px!important;height:36px!important}
+}
+
+
+/* === Composer polish v2 (wins over older rules) === */
+.composer-area{
+  background:linear-gradient(180deg, transparent 0%, rgba(241,245,249,.6) 40%, #F1F5F9 100%)!important
+}
+.composer{
+  align-items:flex-end!important;
+  border-radius:28px!important
+}
+.composer:focus-within{
+  border-color:rgba(99,102,241,.4)!important
+}
+.composer textarea{
+  font-size:15px!important;line-height:1.5!important
+}
+.send-btn.active{
+  background:linear-gradient(145deg, #818CF8 0%, #6366F1 50%, #4F46E5 100%)!important
+}
+@media(max-width:480px){
+  .composer-area{padding:10px 12px 12px!important;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))!important}
+  .composer{padding:8px 10px 8px 14px!important;border-radius:24px!important;min-height:52px}
+  .send-btn{width:40px!important;height:40px!important}
   .comp-btn{width:36px!important;height:36px!important}
 }
