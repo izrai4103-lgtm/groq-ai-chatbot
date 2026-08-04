@@ -737,7 +737,7 @@ export default function Home() {
         endpoint = '/api/conference'
         fetchBody = JSON.stringify({
           topic: text,
-          rounds: 2,
+          rounds: 1,
           guestId: session?.guestId || '',
         })
       }
