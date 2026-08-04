@@ -21,7 +21,7 @@ import { BASE_SYSTEM_PROMPT } from '../schema-prompt'
 import { MATH_TUTOR_PROMPT } from '../math-tutor-prompt'
 import { checkRateLimit } from './rate-limit'
 import { WEBSITE_CONTROL_PROMPT, WEBSITE_TOOLS, WEBSITE_TOOL_NAMES } from '../website-control'
-import { fetchWebResearch } from '../web-research'
+import { fetchWebResearch, formatWebResults } from '../web-research'
 import type { ChatMessage, EngineErrorCode, EngineResult, ModelKind, ScanResult } from './types'
 
 const jailbreakScanner = new JailbreakScanner()
@@ -199,50 +199,41 @@ export async function runChat(
     // MULTI-MODEL COLLABORATION: semua model saling bicara
     // ============================================================
 
-    // --- TAHAP 1: Research (key 5 & 6) — cari data web jika perlu ---
+    // --- TAHAP 1: Research real-time (SearXNG+Jina+multi-source → Claude synthesis) ---
     let researchContext = ''
     if (wantsResearch) {
       try {
         const webResults = await fetchWebResearch(lastUserText)
-        const sources = (webResults?.results || []).slice(0, 8)
+        const sources = (webResults?.results || []).slice(0, 12)
         if (sources.length > 0) {
-          researchContext = '\n\n🔍 HASIL RISET WEB (dari Research Agent / GEMINI_API_KEY_2):\n' +
-            sources.map((r: any, i: number) =>
-              `[${i + 1}] ${r.title || r.name || 'Sumber'}: ${(r.snippet || r.description || '').slice(0, 200)}${r.url ? ` (${r.url})` : ''}`
-            ).join('\n')
-
-          // Research model synthesize data
-          try {
-            let researchText = ''
-            try {
-              const researchSynthesis = await callGroqWithTools(
-                'research',
-                'Kamu Research Agent. Rangkum data web menjadi insight padat (poin-poin) relevan untuk user.',
-                [{ role: 'user', content: `Pertanyaan: ${lastUserText}\n\nData:\n${researchContext}` }] as GroqToolMessage[],
-                [] as GroqToolDefinition[],
-                { maxTokens: 110, timeoutMs: 10_000 },
+          let evidence = formatWebResults(webResults.results || [], webResults.related || [])
+          if (!evidence || evidence.length < 40) {
+            evidence = sources
+              .map(
+                (r: any, i: number) =>
+                  `[${i + 1}] ${r.title || 'Sumber'}: ${(r.excerpt || r.snippet || r.description || '').slice(0, 240)}${r.url ? ` (${r.url})` : ''}`,
               )
-              researchText = researchSynthesis.content || ''
-            } catch { /* ignore */ }
-            if (researchText) {
-              try {
-                const more = await generateRolling(
-                  'research',
-                  'Kamu Research Agent. Lanjutkan insight riset, padat dan akurat. Akhiri [[SELESAI]] bila cukup.',
-                  [
-                    { role: 'user', content: `Pertanyaan: ${lastUserText}` },
-                    { role: 'assistant', content: researchText },
-                    { role: 'user', content: 'Lanjutkan insight. Jangan mengulang.' },
-                  ],
-                  { maxRounds: 3, maxTokens: 110 },
-                )
-                if (more.content) researchText = more.content
-              } catch { /* keep first */ }
-              researchContext = '\n\n🔍 INSIGHT DARI RESEARCH AGENT:\n' + normalizeOutput(researchText)
+              .join('\n')
+          }
+          researchContext =
+            '\n\n🔍 HASIL RISET WEB REAL-TIME:\n' + evidence.slice(0, 6000)
+
+          try {
+            const syn = await synthesizeClaudeResearch(lastUserText, researchContext, 'research')
+            if (syn.insight) {
+              researchContext =
+                researchContext +
+                '\n\n🔍 INSIGHT (Claude-grade):\n' +
+                normalizeOutput(syn.insight)
+              meta.claudeResearch = { hops: syn.hops, used: true }
             }
-          } catch { /* pakai raw results kalau synthesis gagal */ }
+          } catch {
+            /* pakai raw evidence */
+          }
         }
-      } catch { /* research opsional, lanjut tanpa data web */ }
+      } catch {
+        /* research opsional */
+      }
     }
 
     // --- TAHAP 2: Thinking (GEMINI_API_KEY_3) — analisis mendalam jika perlu ---
