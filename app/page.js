@@ -403,7 +403,7 @@ function TypingIndicator() {
               <span className="typ-orbit-dot" /><span className="typ-orbit-dot" />
               <span className="typ-orbit-dot" /><span className="typ-orbit-dot" />
             </div>
-            <span className="typ-label">\ud83d\udde3\ufe0f\ud83e\udde0\ud83d\udd0d\ud83c\udfa8 Models sedang berdiskusi\u2026</span>
+            <span className="typ-label">{'\ud83d\udde3\ufe0f\ud83e\udde0\ud83d\udd0d\ud83c\udfa8'} Models sedang berdiskusi{'\u2026'}</span>
           </div>
         </div>
       </div>
@@ -990,9 +990,9 @@ export default function Home() {
             {loading && <TypingIndicator />}
             {error && (
               <div className="err">
-                <span>\u26a0\ufe0f</span> {error}
-                <button onClick={retry} title="Coba lagi">\u21bb Coba lagi</button>
-                <button onClick={() => setError('')}>\u2715</button>
+                <span>{'\u26a0\ufe0f'}</span> {error}
+                <button onClick={retry} title="Coba lagi">{'\u21bb'} Coba lagi</button>
+                <button onClick={() => setError('')}>{'\u2715'}</button>
               </div>
             )}
           </div>
@@ -1045,8 +1045,8 @@ export default function Home() {
               </button>
             </div>
             <div className="settings-about">
-              <div className="settings-about-ic" aria-hidden>\u2728</div>
-              <p className="settings-about-tx">AI ini dibuat oleh developer tunggal<br /><strong>~Andmute\ud83c\udf89</strong></p>
+              <div className="settings-about-ic" aria-hidden>{'\u2728'}</div>
+              <p className="settings-about-tx">AI ini dibuat oleh developer tunggal<br /><strong>~Andmute{'\ud83c\udf89'}</strong></p>
             </div>
           </div>
         </div>

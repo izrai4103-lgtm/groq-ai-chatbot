@@ -1666,3 +1666,74 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{
   .send-btn.active:hover:not(:disabled){transform:none!important}
   .msg.user:hover .msg-c,.msg.assistant:hover .msg-c{transform:none}
 }
+
+/* === UI POLISH v4 — sempurnakan & rapi === */
+:root{
+  --radius-lg:20px;
+  --radius-md:12px;
+  --radius-sm:8px;
+}
+
+/* Seleksi teks & interaksi dasar */
+::selection{background:rgba(86,97,246,.22)}
+button{user-select:none;-webkit-user-select:none}
+a,.sidebar-item,.chat-item,.topbar-btn,.comp-btn,.act-btn,.hist-clear,.switch{-webkit-tap-highlight-color:transparent}
+
+/* Fokus keyboard untuk elemen non-input (aksi via klik) */
+.sidebar-item:focus-visible,.chat-item-main:focus-visible,.model-opt:focus-visible,
+.settings-close:focus-visible,.hist-clear:focus-visible,.src-chip:focus-visible,
+.codebox-copy:focus-visible,.codebox-prev:focus-visible,.switch:focus-visible{
+  outline:2px solid rgba(86,97,246,.6);outline-offset:2px
+}
+
+/* Toast — lebih lembut & selaras dengan tema terang */
+.toast{
+  box-shadow:var(--shadow-lg)!important;
+  border-color:rgba(226,232,240,.8);background:rgba(255,255,255,.94);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  font-weight:500;letter-spacing:.01em
+}
+
+/* Markdown — spasi ujung rapi & token panjang aman */
+.msg-txt>*:first-child{margin-top:0}
+.msg-txt>*:last-child{margin-bottom:0}
+.msg-txt{overflow-wrap:anywhere}
+
+/* Komposer — umpan balik fokus halus & indikator tombol aktif */
+.composer{transition:box-shadow .25s ease,border-color .25s ease,transform .2s ease}
+.composer:focus-within{transform:translateY(-1px)}
+.comp-btn{position:relative}
+.comp-btn.on::after{
+  content:"";position:absolute;bottom:6px;left:50%;transform:translateX(-50%);
+  width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.85
+}
+
+/* Sidebar aktif — indikator lebih tegas */
+.sidebar-item.chat-item-main.active{box-shadow:inset 3px 0 0 #459AFF,var(--shadow-sm)!important}
+
+/* Tipografi panel & kartu lebih tajam */
+.settings-hd h3,.code-preview-title{letter-spacing:-.01em}
+.setting-nm{letter-spacing:.01em}
+.settings-about-ic{filter:drop-shadow(0 4px 8px rgba(86,97,246,.25))}
+
+/* Profil — input dengan fokus ring */
+.profile-input{transition:border-color .2s ease,box-shadow .2s ease}
+.profile-input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(25,195,125,.14)}
+
+/* Error & file chip — kedalaman konsisten */
+.err{box-shadow:0 6px 20px rgba(90,32,32,.22)}
+.file-chip:hover{border-color:#C7D2FE;box-shadow:var(--shadow-sm)}
+.codebox-hd{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0))}
+
+/* Touch — tidak ada hover-lift di layar sentuh */
+@media(hover:none){
+  .sidebar-item.chat-item-main:hover,.topbar-btn:hover,.comp-btn:hover,
+  .act-btn:hover,.file-chip button:hover,.chat-item:hover{transform:none!important}
+}
+
+/* Reduced motion tambahan */
+@media(prefers-reduced-motion:reduce){
+  .msg{animation:none!important}
+  .toast{animation:none}
+  .comp-btn.on::after{animation:none}
+}
