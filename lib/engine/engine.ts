@@ -204,7 +204,7 @@ export async function runChat(
         const webResults = await fetchWebResearch(lastUserText)
         const sources = (webResults?.results || []).slice(0, 8)
         if (sources.length > 0) {
-          researchContext = '\n\n🔍 HASIL RISET WEB (dari Research Agent, key 5-6):\n' +
+          researchContext = '\n\n🔍 HASIL RISET WEB (dari Research Agent / GEMINI_API_KEY_2):\n' +
             sources.map((r: any, i: number) =>
               `[${i + 1}] ${r.title || r.name || 'Sumber'}: ${(r.snippet || r.description || '').slice(0, 200)}${r.url ? ` (${r.url})` : ''}`
             ).join('\n')
@@ -226,7 +226,7 @@ export async function runChat(
       } catch { /* research opsional, lanjut tanpa data web */ }
     }
 
-    // --- TAHAP 2: Thinking (key 3 & 4) — analisis mendalam jika perlu ---
+    // --- TAHAP 2: Thinking (GEMINI_API_KEY_3) — analisis mendalam jika perlu ---
     let thinkingContext = ''
     if (wantsThinking) {
       try {
@@ -247,7 +247,7 @@ export async function runChat(
       } catch { /* thinking opsional */ }
     }
 
-    // --- TAHAP 3: Chat (key 1 & 2) — jawab utama dengan konteks semua agent ---
+    // --- TAHAP 3: Chat (GEMINI_API_KEY) — jawab utama dengan konteks semua agent ---
     const compactBase = (() => {
       const s = BASE_SYSTEM_PROMPT
       return s.length <= 1800 ? s : s.slice(0, s.lastIndexOf('\n', 1800))
@@ -344,7 +344,7 @@ export async function runChat(
       if (done) break
     }
 
-    // --- TAHAP 4: Creative (key 7 & 8) — polish jawaban jika perlu ---
+    // --- TAHAP 4: Creative (GEMINI_API_KEY_4) — polish jawaban jika perlu ---
     if (wantsCreative && finalContent) {
       try {
         const creativeResult = await callGroqWithTools(
@@ -388,10 +388,16 @@ export async function runChat(
       thinking: wantsThinking && thinkingContext.length > 0,
       creative: wantsCreative,
       agents: [
-        'Chat (key 1-2)',
-        ...(wantsResearch && researchContext ? ['Research (key 5-6)'] : []),
-        ...(wantsThinking && thinkingContext ? ['Thinking (key 3-4)'] : []),
-        ...(wantsCreative ? ['Creative (key 7-8)'] : []),
+        { id: 'chat', key: 'GEMINI_API_KEY', task: 'Jawaban utama' },
+        ...(wantsResearch && researchContext
+          ? [{ id: 'research', key: 'GEMINI_API_KEY_2', task: 'Riset fakta & web' }]
+          : []),
+        ...(wantsThinking && thinkingContext
+          ? [{ id: 'thinking', key: 'GEMINI_API_KEY_3', task: 'Analisis mendalam' }]
+          : []),
+        ...(wantsCreative
+          ? [{ id: 'creative', key: 'GEMINI_API_KEY_4', task: 'Polish & gaya tulis' }]
+          : []),
       ],
     }
 

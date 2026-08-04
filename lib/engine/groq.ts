@@ -6,12 +6,38 @@ import { recordRateLimit, recordUsage } from '../token-usage'
  * Setiap fitur memakai 2 API key khusus miliknya (lihat lib/provider-keys.js),
  * jadi kuota TPM per fitur tidak saling berebut dan 429 jauh lebih jarang.
  */
+/** Spesifikasi 4 agent — model aktual diambil dari provider-keys (per API key). */
 export const MODELS: Record<ModelKind, ModelSpec> = {
-  chat: { feature: 'chat', model: process.env.CHAT_MODEL || 'openai/gpt-oss-120b', maxTokens: 2048, name: 'Chat' },
-  thinking: { feature: 'thinking', model: 'openai/gpt-oss-120b', maxTokens: 2048, name: 'Thinking' },
-  research: { feature: 'research', model: 'openai/gpt-oss-120b', maxTokens: 2048, name: 'Research' },
-  creative: { feature: 'creative', model: 'openai/gpt-oss-120b', maxTokens: 2048, name: 'Creative' },
-  upload: { feature: 'upload', model: process.env.UPLOAD_MODEL || 'openai/gpt-oss-120b', maxTokens: 2048, name: 'Upload' },
+  chat: {
+    feature: 'chat',
+    model: process.env.CHAT_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    maxTokens: 2048,
+    name: 'Chat',
+  },
+  research: {
+    feature: 'research',
+    model: process.env.RESEARCH_MODEL || process.env.GEMINI_FLASH_MODEL || 'gemini-flash-latest',
+    maxTokens: 2048,
+    name: 'Research',
+  },
+  thinking: {
+    feature: 'thinking',
+    model: process.env.THINKING_MODEL || process.env.GEMINI_FLASH_MODEL || 'gemini-flash-latest',
+    maxTokens: 2048,
+    name: 'Thinking',
+  },
+  creative: {
+    feature: 'creative',
+    model: process.env.CREATIVE_MODEL || process.env.GEMINI_FLASH_MODEL || 'gemini-flash-latest',
+    maxTokens: 2048,
+    name: 'Creative',
+  },
+  upload: {
+    feature: 'upload',
+    model: process.env.UPLOAD_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    maxTokens: 2048,
+    name: 'Upload',
+  },
 }
 
 export class EngineError extends Error {
