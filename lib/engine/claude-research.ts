@@ -42,7 +42,7 @@ export async function synthesizeClaudeResearch(
           content: `Pertanyaan: ${question}\n\nBukti:\n${evidenceText.slice(0, 3500)}\n\nFakta kunci:`,
         },
       ],
-      { maxTokens: MAX_TOK, temperature: 0.2, timeoutMs: 8_000 },
+      { maxTokens: MAX_TOK, temperature: 0.2, timeoutMs: 30_000 },
     )
   } catch {
     facts = ''
@@ -60,7 +60,7 @@ export async function synthesizeClaudeResearch(
           content: `Pertanyaan: ${question}\n\nFakta:\n${strip(facts) || evidenceText.slice(0, 1500)}\n\nJawaban:`,
         },
       ],
-      { maxTokens: MAX_TOK, temperature: 0.3, timeoutMs: 8_000 },
+      { maxTokens: MAX_TOK, temperature: 0.3, timeoutMs: 30_000 },
     )
   } catch {
     answer = facts

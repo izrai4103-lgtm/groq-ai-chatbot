@@ -49,7 +49,7 @@ async function oneShot(
       kind,
       system,
       [{ role: 'user', content: user }],
-      { maxTokens: MAX_TOK, temperature, timeoutMs: 8_000 },
+      { maxTokens: MAX_TOK, temperature, timeoutMs: 30_000 },
     )
   } catch {
     return ''

@@ -241,7 +241,7 @@ export async function runChat(
           'Kamu Thinking Agent. Tugasmu menganalisis secara mendalam, memberikan sudut pandang berbeda, dan menyusun pemikiran terstruktur. Singkat tapi tajam.',
           [{ role: 'user', content: thinkPrompt }] as GroqToolMessage[],
           [] as GroqToolDefinition[],
-          { maxTokens: 250, timeoutMs: 8_000 },
+          { maxTokens: 250, timeoutMs: 30_000 },
         )
         if (thinkResult.content) {
           thinkingContext = '\n\n🧠 ANALISIS DARI THINKING AGENT:\n' + normalizeOutput(thinkResult.content)
@@ -284,7 +284,7 @@ export async function runChat(
         systemPrompt,
         chatMessages,
         [...(AI_TOOLS as GroqToolDefinition[]), ...(WEBSITE_TOOLS as GroqToolDefinition[])],
-        { maxTokens: 250, timeoutMs: 20_000 },
+        { maxTokens: 250, timeoutMs: 60_000 },
       )
 
       if (modelResult.toolCalls.length === 0) {
@@ -409,7 +409,7 @@ export async function runChat(
           'Kamu Creative Agent. Tugasmu memperkaya dan memoles teks berikut agar lebih menarik, mudah dibaca, dan engaging. Pertahankan semua fakta dan referensi, hanya tingkatkan kualitas tulisan. Jangan menambah informasi baru yang tidak ada di teks asli.',
           [{ role: 'user', content: `Polish teks ini:\n\n${finalContent}` }] as GroqToolMessage[],
           [] as GroqToolDefinition[],
-          { maxTokens: 250, temperature: 0.8, timeoutMs: 10_000 },
+          { maxTokens: 250, temperature: 0.8, timeoutMs: 30_000 },
         )
         if (creativeResult.content && creativeResult.content.trim().length > finalContent.length * 0.5) {
           finalContent = creativeResult.content
