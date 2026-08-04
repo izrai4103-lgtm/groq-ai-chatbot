@@ -10,7 +10,7 @@ import { callGroq } from './groq'
 import { generateRolling } from './rolling-output'
 import type { ModelKind } from './types'
 
-const MAX_TOK = 250
+const MAX_TOK = 1028
 
 function strip(s: string): string {
   return (s || '')

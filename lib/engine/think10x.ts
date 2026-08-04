@@ -17,7 +17,7 @@ import { callGroq } from './groq'
 import { generateRolling } from './rolling-output'
 import type { ChatMessage, ModelKind } from './types'
 
-const MAX_TOK = 250
+const MAX_TOK = 1028
 
 function stripMeta(s: string): string {
   return (s || '')
