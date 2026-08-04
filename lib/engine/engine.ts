@@ -52,23 +52,29 @@ function hasToolIntent(text: string): boolean {
 }
 
 /* Deteksi apakah pertanyaan butuh riset web */
+/* Hanya riset web bila jelas butuh data real-time / pencarian */
 const RESEARCH_INTENT_RE =
-  /(siapa|apa itu|kapan|dimana|berapa|bagaimana|mengapa|kenapa|berita|terbaru|latest|news|update|harga|price|cuaca|weather|kurs|statistik|data |fakta|sejarah|who is|what is|when|where|how much|how many|why|search|cari|find|explain|jelaskan)/i
+  /\b(berita|terbaru|latest|news|hari ini|saat ini|update|harga|cuaca|weather|kurs|cari di web|search web|google|siapa presiden|who is the|what is the current)\b/i
 function needsResearch(text: string): boolean {
+  if (!text || text.length < 8) return false
+  // sapaan / chat ringan → jangan riset
+  if (/^(hai|halo|hi|hello|hey|pagi|siang|malam|thanks|terima kasih|ok|oke)\b/i.test(text.trim())) return false
   return RESEARCH_INTENT_RE.test(text)
 }
 
 /* Deteksi apakah pertanyaan butuh pemikiran mendalam */
 const THINKING_INTENT_RE =
-  /(analisis|analyze|bandingkan|compare|evaluasi|evaluate|pro.?con|kelebihan.?kekurangan|strategi|strategy|solusi|solution|rencana|plan|pikirkan|think|review|debug|optimasi|optimize|arsitektur|architecture|desain sistem|system design|algoritma|algorithm)/i
+  /\b(analisis mendalam|analyze in depth|bandingkan|compare|pro.?con|kelebihan dan kekurangan|strategi bisnis|system design|arsitektur sistem|debug kode|optimasi algoritma)\b/i
 function needsThinking(text: string): boolean {
+  if (!text || text.length < 20) return false
   return THINKING_INTENT_RE.test(text)
 }
 
 /* Deteksi apakah pertanyaan butuh sentuhan kreatif */
 const CREATIVE_INTENT_RE =
-  /(tulis|write|buat.?(cerita|puisi|poem|story|artikel|article|copy|slogan|tagline|caption|naskah|script)|kreatif|creative|brainstorm|ide |ideas?|inspirasi|inspiration|nama.?(brand|produk|bisnis)|rewrite|parafrase|paraphrase)/i
+  /\b(tulis (cerita|puisi|artikel|naskah)|buat (cerita|puisi|slogan|tagline)|brainstorm|parafrase|paraphrase|rewrite)\b/i
 function needsCreative(text: string): boolean {
+  if (!text || text.length < 10) return false
   return CREATIVE_INTENT_RE.test(text)
 }
 
@@ -204,8 +210,13 @@ export async function runChat(
     let researchContext = ''
     if (wantsResearch) {
       try {
-        const webResults = await fetchWebResearch(lastUserText)
-        const sources = (webResults?.results || []).slice(0, 12)
+        const webResults = await Promise.race([
+          fetchWebResearch(lastUserText),
+          new Promise<{ ok: false; results: []; related: [] }>((resolve) =>
+            setTimeout(() => resolve({ ok: false, results: [], related: [] }), 4000),
+          ),
+        ])
+        const sources = (webResults?.results || []).slice(0, 6)
         if (sources.length > 0) {
           let evidence = formatWebResults(webResults.results || [], webResults.related || [])
           if (!evidence || evidence.length < 40) {
@@ -348,11 +359,7 @@ export async function runChat(
 
     // Think10x dimatikan di jalur default (terlalu lambat 1–2 menit).
     // Aktif hanya jika jawaban masih sangat pendek + pertanyaan kompleks.
-    if (
-      finalContent &&
-      finalContent.trim().length < 120 &&
-      needsDeepThink(lastUserText)
-    ) {
+    if (false && finalContent && needsDeepThink(lastUserText)) {
       try {
         const deep = await think10x(lastUserText, {
           kind: 'thinking',
@@ -369,7 +376,7 @@ export async function runChat(
     }
 
     // --- ROG: hanya jika jawaban masih pendek ---
-    if (finalContent && finalContent.trim().length > 0 && finalContent.trim().length < 100) {
+    if (false && finalContent && finalContent.trim().length < 100) {
       try {
         const rolled = await generateRolling(
           opts.model || 'chat',
@@ -415,7 +422,7 @@ export async function runChat(
           finalContent = creativeResult.content
         }
         // Creative ROG hanya jika sangat pendek
-        if (finalContent.trim().length < 80) {
+        if (false && finalContent.trim().length < 80) {
           try {
             const more = await generateRolling(
               'creative',
