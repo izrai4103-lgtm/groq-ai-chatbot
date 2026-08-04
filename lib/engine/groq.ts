@@ -11,31 +11,31 @@ export const MODELS: Record<ModelKind, ModelSpec> = {
   chat: {
     feature: 'chat',
     model: process.env.CHAT_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-    maxTokens: 2048,
+    maxTokens: 110,
     name: 'Chat',
   },
   research: {
     feature: 'research',
     model: process.env.RESEARCH_MODEL || process.env.GEMINI_FLASH_MODEL || 'gemini-flash-latest',
-    maxTokens: 2048,
+    maxTokens: 110,
     name: 'Research',
   },
   thinking: {
     feature: 'thinking',
     model: process.env.THINKING_MODEL || process.env.GEMINI_FLASH_MODEL || 'gemini-flash-latest',
-    maxTokens: 2048,
+    maxTokens: 110,
     name: 'Thinking',
   },
   creative: {
     feature: 'creative',
     model: process.env.CREATIVE_MODEL || process.env.GEMINI_FLASH_MODEL || 'gemini-flash-latest',
-    maxTokens: 2048,
+    maxTokens: 110,
     name: 'Creative',
   },
   upload: {
     feature: 'upload',
     model: process.env.UPLOAD_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-    maxTokens: 2048,
+    maxTokens: 110,
     name: 'Upload',
   },
 }
@@ -288,7 +288,7 @@ export async function callGroqWithTools(
       // Retry sekali saat model gagal menghasilkan argumen tool yang valid.
       const isToolFail = res.status === 400 && detail.includes('tool_use_failed')
       if (isToolFail) {
-        const retry = await doFetch(0.2, Math.max(maxTokens, 2048))
+        const retry = await doFetch(0.2, maxTokens)
         if (retry.res.ok) {
           const data2 = await retry.res.json() as Parameters<typeof mapResult>[0]
           recordUsage(spec.model, kind, data2.usage?.total_tokens, data2.usage?.completion_tokens)
@@ -324,7 +324,7 @@ export async function callGroqWithTools(
       result.toolCalls.some(tc => {
         try { JSON.parse(tc.arguments); return false } catch { return true }
       })
-    if (truncated && maxTokens < 2048) {
+    if (truncated && maxTokens < 110) {
       const retry = await doFetch(0.2, 2048)
       if (retry.res.ok) {
         const data2 = await retry.res.json() as Parameters<typeof mapResult>[0]
