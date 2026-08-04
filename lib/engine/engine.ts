@@ -290,12 +290,15 @@ export async function runChat(
     let finalContent = ''
     const toolIntent = hasToolIntent(lastUserText)
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const activeTools = toolIntent
+        ? ([...(AI_TOOLS as GroqToolDefinition[]), ...(WEBSITE_TOOLS as GroqToolDefinition[])] as GroqToolDefinition[])
+        : ([] as GroqToolDefinition[])
       const modelResult = await callGroqWithTools(
         opts.model || 'chat',
         systemPrompt,
         chatMessages,
-        [...(AI_TOOLS as GroqToolDefinition[]), ...(WEBSITE_TOOLS as GroqToolDefinition[])],
-        { maxTokens: 250, timeoutMs: 60_000 },
+        activeTools,
+        { maxTokens: 250, timeoutMs: 45_000 },
       )
 
       if (modelResult.toolCalls.length === 0) {
