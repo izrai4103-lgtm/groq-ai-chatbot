@@ -21,9 +21,10 @@ import { EngineError } from './groq'
 import { getFeatureKeys } from '../provider-keys'
 
 /* ===== Konstanta ===== */
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
+const GROQ_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
 const GROQ_AUDIO_URL = 'https://api.groq.com/openai/v1/audio/transcriptions'
-const VISION_MODEL = process.env.VISION_MODEL || 'qwen/qwen3.6-27b'
+const VISION_MODEL = process.env.VISION_MODEL || 'gemini-2.5-flash'
 const WHISPER_MODEL = 'whisper-large-v3-turbo'
 const MAX_FILE_BYTES = 4 * 1024 * 1024 // batas body Vercel 4.5MB
 const MAX_REPORT_CHARS = 3500
@@ -56,14 +57,13 @@ interface PillowInfo {
 /* ===== Helper kecil ===== */
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-function getGroqKey(): string {
-  // Fitur upload punya 2 key (Groq utama + Gemini cadangan). Vision/Whisper
-  // butuh Groq (model qwen + whisper), jadi ambil key Groq dari fitur upload.
+function getVisionEntry() {
+  // Vision memakai key fitur upload (sekarang Gemini).
   const uploadKeys = getFeatureKeys('upload')
-  const groq = uploadKeys.find((k) => k.provider === 'groq')
-  const key = groq?.key || process.env.GROQ_API_KEY || process.env.GROQ_VISION_KEY || ''
+  const entry = uploadKeys[0]
+  const key = entry?.key || process.env.GEMINI_API_KEY || process.env.GROQ_VISION_KEY || ''
   if (!key) throw new EngineError('AI_MODEL_UNAVAILABLE', 'Kunci API vision tidak tersedia')
-  return key
+  return { key, url: entry?.url || GEMINI_URL }
 }
 
 function truncate(text: string, max: number): string {
@@ -168,7 +168,7 @@ async function prepareImageForVision(buffer: Buffer): Promise<string> {
 
 /* ===== Panggilan model vision Groq (dengan retry) ===== */
 async function callGroqVision(system: string, content: unknown): Promise<string> {
-  const apiKey = getGroqKey()
+  const { key: apiKey, url: visionUrl } = getVisionEntry()
   const body = {
     model: VISION_MODEL,
     messages: [
@@ -184,7 +184,7 @@ async function callGroqVision(system: string, content: unknown): Promise<string>
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 60_000)
     try {
-      const res = await fetch(GROQ_URL, {
+      const res = await fetch(visionUrl, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -295,7 +295,11 @@ async function readDocument(name: string, text: string): Promise<string | null> 
 
 /* ===== TRANSKRIPSI AUDIO (Whisper) ===== */
 async function transcribeAudio(buffer: Buffer, name: string): Promise<string> {
-  const apiKey = getGroqKey()
+  // Whisper hanya tersedia di Groq; dengan Gemini, transkripsi audio dinonaktifkan.
+  const apiKey = process.env.GROQ_API_KEY || ''
+  if (!apiKey) {
+    throw new EngineError('AI_MODEL_UNAVAILABLE', 'Transkripsi audio butuh key Groq (whisper)')
+  }
   const fd = new FormData()
   fd.append('file', new Blob([buffer as unknown as BlobPart]), name)
   fd.append('model', WHISPER_MODEL)
