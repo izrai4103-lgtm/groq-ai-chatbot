@@ -1578,36 +1578,91 @@ button:disabled{cursor:not-allowed}
   }
 }
 
+/* === UI POLISH v3 — konsistensi, markdown & aksesibilitas === */
+:root{
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;
+  --shadow-focus:0 0 0 3px rgba(86,97,246,.16);
+}
 
-/* === Copy-paste under bubble (bukan samping) === */
-.msg-copy-row{
-  display:flex;align-items:center;width:auto;
-  padding:4px 4px 2px;margin-top:2px;
-  max-width:min(82%, 520px)
+html{-webkit-text-size-adjust:100%;text-rendering:optimizeLegibility}
+
+/* Keamanan media & tipografi dasar */
+img{max-width:100%;height:auto}
+a{color:var(--blue);text-decoration:none;text-underline-offset:2px;text-decoration-thickness:1px}
+a:hover{text-decoration:underline}
+code,kbd,samp{font-family:var(--font-mono)}
+input,textarea{caret-color:var(--blue)}
+button,input,textarea,select{touch-action:manipulation}
+
+/* Focus ring lebih lembut & konsisten */
+button:focus-visible,input:focus-visible,textarea:focus-visible{
+  outline:2px solid rgba(86,97,246,.6);
+  outline-offset:2px;
+  box-shadow:var(--shadow-focus)
 }
-.msg-copy-row.user{justify-content:flex-end;align-self:flex-end;margin-right:38px}
-.msg-copy-row.assistant{justify-content:flex-start;align-self:flex-start;margin-left:38px}
-.msg-copy-btn{
-  display:inline-flex;align-items:center;gap:5px;
-  padding:5px 11px;border-radius:999px;
-  border:1px solid #E2E8F0;background:#fff;
-  color:#64748B;font-size:12px;font-weight:500;
-  box-shadow:0 1px 3px rgba(15,23,42,.06);
-  transition:transform .15s ease, background .15s, color .15s, border-color .15s, box-shadow .15s
+
+/* Scrollbar komposer */
+.composer textarea::-webkit-scrollbar{width:4px;height:4px}
+.composer textarea::-webkit-scrollbar-thumb{background:rgba(100,116,139,.3);border-radius:99px}
+.composer textarea::-webkit-scrollbar-thumb:hover{background:rgba(100,116,139,.5)}
+
+/* MARKDOWN — keterbacaan di dalam bubble */
+.msg-txt h1,.msg-txt h2,.msg-txt h3,.msg-txt h4{
+  margin:10px 0 6px;line-height:1.3;letter-spacing:-.01em;font-weight:650
 }
-.msg-copy-btn svg{width:13px;height:13px;flex-shrink:0}
-.msg-copy-btn:hover{
-  background:#F8FAFC;color:#459AFF;border-color:#BFDBFE;
-  transform:translateY(-1px);
-  box-shadow:0 3px 10px rgba(69,154,255,.15)
+.msg-txt h1{font-size:1.28em}
+.msg-txt h2{font-size:1.16em}
+.msg-txt h3{font-size:1.06em}
+.msg-txt p{margin:4px 0}
+.msg-txt ul,.msg-txt ol{margin:6px 0;padding-left:1.35em}
+.msg-txt li{margin:2px 0}
+.msg-txt hr{border:none;border-top:1px solid rgba(15,23,42,.12);margin:10px 0}
+.msg-txt blockquote{
+  margin:6px 0;padding:6px 12px;border-left:3px solid var(--blue);
+  background:rgba(69,154,255,.07);border-radius:0 8px 8px 0;color:var(--text-sec)
 }
-.msg-copy-btn:active{transform:scale(.96)}
-.msg-copy-btn.done{
-  background:#ECFDF5;border-color:#A7F3D0;color:#059669
+.msg-txt table{
+  border-collapse:collapse;width:100%;margin:8px 0;font-size:12.5px;
+  border:1px solid var(--border);border-radius:8px;overflow:hidden
 }
-.msg-copy-btn.done:hover{background:#D1FAE5;color:#047857}
-@media(max-width:480px){
-  .msg-copy-row.user{margin-right:28px}
-  .msg-copy-row.assistant{margin-left:28px}
-  .msg-copy-btn{padding:4px 9px;font-size:11px}
+.msg-txt th,.msg-txt td{
+  border:1px solid var(--border);padding:6px 10px;text-align:left;vertical-align:top
+}
+.msg-txt th{background:var(--bg-hover);font-weight:600}
+.msg-txt img{border-radius:10px;box-shadow:var(--shadow-sm)}
+.msg-txt a{text-underline-offset:2px}
+.msg-txt pre{max-width:100%;overflow-x:auto}
+.msg-txt pre code{font-size:12.5px;line-height:1.6}
+
+/* Bubble asisten (gelap) — markdown tetap terbaca */
+.msg.assistant .msg-txt h1,
+.msg.assistant .msg-txt h2,
+.msg.assistant .msg-txt h3,
+.msg.assistant .msg-txt h4{color:#fff!important}
+.msg.assistant .msg-txt hr{border-top-color:rgba(255,255,255,.2)}
+.msg.assistant .msg-txt blockquote{
+  border-left-color:var(--purple-soft);background:rgba(255,255,255,.08);color:rgba(255,255,255,.9)
+}
+.msg.assistant .msg-txt table{border-color:rgba(255,255,255,.18)}
+.msg.assistant .msg-txt th,.msg.assistant .msg-txt td{border-color:rgba(255,255,255,.14)}
+.msg.assistant .msg-txt th{background:rgba(255,255,255,.1);color:#fff}
+.msg.assistant .msg-txt a{text-decoration-color:rgba(237,233,254,.5)}
+
+/* Sidebar — label riwayat lebih ringkas & empty state lebih halus */
+.hist-group{
+  text-transform:uppercase;letter-spacing:.08em;
+  font-size:11px!important;font-weight:600!important;color:#6A6969!important
+}
+.empty-state{
+  background:rgba(255,255,255,.55);border-color:#CBD5E1;color:var(--text-muted)
+}
+
+/* Interaksi — hilangkan efek hover yang "menempel" di layar sentuh */
+@media(hover:none){
+  .sidebar-item.chat-item-main:hover{transform:none}
+  .sb-actions .new-btn:hover,.new-btn:hover{transform:none!important}
+  .topbar-btn:hover,.figma-menu-btn:hover{transform:none}
+  .sidebar-bt-item:hover,.sidebar-user:hover{transform:none}
+  .send-btn.active:hover:not(:disabled){transform:none!important}
+  .msg.user:hover .msg-c,.msg.assistant:hover .msg-c{transform:none}
 }
