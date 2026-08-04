@@ -43,15 +43,17 @@ const WEB_AGENT_VERBS = /(?:buka|open|visit|browse|kunjungi|isi|isiin|fill|login
 
 
 /* ===== YouTube Music Agent ===== */
-const MUSIC_RE = /(?:putar|play|mainkan|dengarkan)\s+(?:musik|music|lagu|song|video)?/i
+const MUSIC_RE = /(?:putar|play|mainkan|dengarkan|nyanyikan)\s+(?:musik|music|lagu|song|video)?/i
 const YT_RE = /youtube\.com|youtu\.be/i
+const MUSIC_SOFT_RE = /(?:musik|music|lagu|song)\s+(?:berjudul|judul|title)?/i
 function musicAgentIntent(text) {
   if (!text) return false
   const t = text.trim()
-  if (t.length > 400) return false
-  // "buka youtube ... putar musik X" atau "putar lagu X"
+  if (t.length > 500) return false
   if (MUSIC_RE.test(t)) return true
-  if (YT_RE.test(t) && /(?:putar|play|mainkan|musik|music|lagu|song)/i.test(t)) return true
+  if (YT_RE.test(t) && /(?:putar|play|mainkan|musik|music|lagu|song|dengarkan)/i.test(t)) return true
+  if (YT_RE.test(t) && /(?:watch\?v=|youtu\.be\/|\/shorts\/)/i.test(t)) return true
+  if (MUSIC_SOFT_RE.test(t) && t.length < 160) return true
   return false
 }
 
@@ -457,57 +459,152 @@ function ChatMessage({ msg, isLast, loading, onEdit, onRegenerate, onRate, ratin
 /* ===== Pesan suara musik (WhatsApp-style) ===== */
 function MusicVoiceCard({ music }) {
   const [playing, setPlaying] = useState(false)
-  const iframeRef = useRef(null)
+  const [expanded, setExpanded] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [elapsed, setElapsed] = useState(0)
+  const tickRef = useRef(null)
+  const duration = Number(music?.duration) || 0
+
+  useEffect(() => {
+    if (!playing || duration <= 0) {
+      if (tickRef.current) {
+        clearInterval(tickRef.current)
+        tickRef.current = null
+      }
+      return undefined
+    }
+    tickRef.current = setInterval(() => {
+      setElapsed((e) => {
+        const next = e + 0.25
+        if (next >= duration) {
+          setPlaying(false)
+          setProgress(100)
+          return duration
+        }
+        setProgress((next / duration) * 100)
+        return next
+      })
+    }, 250)
+    return () => {
+      if (tickRef.current) {
+        clearInterval(tickRef.current)
+        tickRef.current = null
+      }
+    }
+  }, [playing, duration])
+
   if (!music?.videoId) return null
-  const embed = music.embedUrl || `https://www.youtube-nocookie.com/embed/${music.videoId}?rel=0&modestbranding=1&playsinline=1`
-  const playEmbed = `${embed}${embed.includes('?') ? '&' : '?'}autoplay=1`
+
+  const fmt = (sec) => {
+    const n = Math.max(0, Math.floor(sec || 0))
+    const m = Math.floor(n / 60)
+    const s = n % 60
+    return `${m}:${String(s).padStart(2, '0')}`
+  }
+
+  const embedBase =
+    music.embedUrl ||
+    `https://www.youtube-nocookie.com/embed/${music.videoId}?rel=0&modestbranding=1&playsinline=1`
+  const playSrc = `${embedBase}${embedBase.includes('?') ? '&' : '?'}autoplay=1`
+
+  const toggle = () => {
+    setPlaying((p) => {
+      const next = !p
+      if (next) {
+        setExpanded(true)
+        if (elapsed >= duration && duration > 0) {
+          setElapsed(0)
+          setProgress(0)
+        }
+      }
+      return next
+    })
+  }
 
   return (
-    <div className="music-voice">
+    <div className={`music-voice ${playing ? 'is-playing' : ''}`}>
       <div className="music-voice-inner">
         <button
           type="button"
           className={`music-play ${playing ? 'on' : ''}`}
-          aria-label={playing ? 'Pause' : 'Play'}
-          onClick={() => setPlaying(p => !p)}
+          aria-label={playing ? 'Jeda' : 'Putar'}
+          onClick={toggle}
         >
           {playing ? (
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.5" /><rect x="14" y="5" width="4" height="14" rx="1.5" /></svg>
           ) : (
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5.14v13.72a1 1 0 001.5.86l11-6.86a1 1 0 000-1.72l-11-6.86A1 1 0 008 5.14z" /></svg>
           )}
         </button>
+
         <div className="music-meta">
           <div className="music-title" title={music.title}>{music.title}</div>
           <div className="music-sub">
-            <span>{music.channel || 'YouTube'}</span>
-            {music.durationLabel ? <span> · {music.durationLabel}</span> : null}
+            <span className="music-channel">{music.channel || 'YouTube'}</span>
+            {music.durationLabel ? <span className="music-dur"> · {music.durationLabel}</span> : null}
+          </div>
+          <div className="music-progress-row">
+            <div
+              className="music-progress"
+              role="progressbar"
+              aria-valuenow={Math.round(progress)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div className="music-progress-fill" style={{ width: `${progress}%` }} />
+            </div>
+            <span className="music-time">
+              {fmt(elapsed)}{duration ? ` / ${fmt(duration)}` : ''}
+            </span>
           </div>
           <div className="music-wave" aria-hidden="true">
-            {[0,1,2,3,4,5,6,7].map(i => (
-              <span key={i} className={`music-bar ${playing ? 'anim' : ''}`} style={{ animationDelay: `${i * 0.08}s` }} />
+            {Array.from({ length: 12 }).map((_, i) => (
+              <span
+                key={i}
+                className={`music-bar ${playing ? 'anim' : ''}`}
+                style={{ animationDelay: `${i * 0.07}s`, height: `${6 + (i % 5) * 2}px` }}
+              />
             ))}
           </div>
         </div>
-        {music.thumbnail && (
-          <img className="music-thumb" src={music.thumbnail} alt="" loading="lazy" />
-        )}
+
+        {music.thumbnail ? (
+          <button
+            type="button"
+            className="music-thumb-btn"
+            onClick={() => setExpanded((e) => !e)}
+            title="Tampilkan video"
+          >
+            <img className="music-thumb" src={music.thumbnail} alt="" loading="lazy" />
+          </button>
+        ) : null}
       </div>
-      {playing && (
+
+      {(playing || expanded) ? (
         <div className="music-embed-wrap">
           <iframe
-            ref={iframeRef}
+            key={playing ? 'play' : 'pause'}
             className="music-embed"
-            src={playEmbed}
+            src={playing ? playSrc : embedBase}
             title={music.title || 'YouTube'}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
+            loading="lazy"
           />
         </div>
-      )}
-      <a className="music-yt-link" href={music.url || `https://www.youtube.com/watch?v=${music.videoId}`} target="_blank" rel="noopener noreferrer">
-        Buka di YouTube ↗
-      </a>
+      ) : null}
+
+      <div className="music-footer">
+        <span className="music-badge">YouTube · Audio</span>
+        <a
+          className="music-yt-link"
+          href={music.url || `https://www.youtube.com/watch?v=${music.videoId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Buka di YouTube ↗
+        </a>
+      </div>
     </div>
   )
 }
