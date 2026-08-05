@@ -46,7 +46,7 @@ function isPathological(s: string, normalized: string): boolean {
 }
 
 const TOOL_INTENT_RE =
-  /(portofolio|portfolio|pdf|profil|cv|resume|analis.{0,20}(situs|website|url|web)|(situs|website|url|web).{0,20}analis|buatkan.{0,30}(portofolio|pdf)|https?:\/\/)/i
+  /(portofolio|portfolio|pdf|profil|cv|resume|analis.{0,20}(situs|website|url|web)|(situs|website|url|web).{0,20}analis|buatkan.{0,30}(portofolio|pdf)|https?:\/\/|\b(jalankan|eksekusi|execute|run code|running code|sandbox|buat (kode|script|program)|tulis (kode|script|program)|javascript|python|algoritma|fibonacci|quicksort|hitung (dengan )?kode|code interpreter)\b)/i
 function hasToolIntent(text: string): boolean {
   return TOOL_INTENT_RE.test(text)
 }
