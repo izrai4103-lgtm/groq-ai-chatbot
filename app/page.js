@@ -1318,20 +1318,20 @@ export default function Home() {
                 <strong>Cara dapat API key Groq (gratis):</strong>
               </p>
               <ol className="byok-steps">
-                <li>Klik tombol <strong>Buat API Key di Groq</strong> di bawah (buka tab baru).</li>
-                <li>Login / daftar di Groq Console.</li>
-                <li>Klik <strong>Create API Key</strong>, beri nama (mis. Zanco-1).</li>
+                <li>Klik tombol <strong>Buat API Key</strong> di bawah (buka Zanco Key Keeper).</li>
+                <li>Login / buat key di Zanco Key Keeper.</li>
+                <li>Buat key baru, salin nilainya.</li>
                 <li>Salin key (<code>gsk_...</code>) — hanya muncul sekali.</li>
                 <li>Ulangi sampai dapat <strong>4 key</strong> (boleh 4 key di 1 akun, atau beda akun).</li>
                 <li>Tempel ke slot Key 1–4 di bawah, lalu <strong>Simpan</strong>.</li>
               </ol>
               <a
                 className="byok-create"
-                href="https://console.groq.com/keys"
+                href="https://zanco-key-keeper.lovable.app"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                {'\ud83d\udd17'} Buat API Key di Groq Console ↗
+                {'\ud83d\udd17'} Buat API Key di Zanco Key Keeper ↗
               </a>
               <p className="byok-help" style={{ marginTop: 10 }}>
                 Key hanya tersimpan di browser kamu. Minimal 4 key untuk rotasi fallback.
