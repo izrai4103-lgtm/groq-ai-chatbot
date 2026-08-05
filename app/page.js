@@ -1188,6 +1188,13 @@ export default function Home() {
               {ICONS.archive} Arsip {archivedChats.length > 0 && <span className="arch-badge">{archivedChats.length}</span>}
             </button>
           )}
+          <button
+            className="sidebar-bt-item sb-apikeys"
+            onClick={() => { setShowSettings(true); setKeysMsg(''); }}
+            title="Pasang API Key Groq (BYOK)"
+          >
+            {'\ud83d\udd11'} API Keys
+          </button>
           <button className="sidebar-bt-item sb-settings" onClick={() => setShowSettings(true)}>
             <span className="sb-ic-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="3" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m9.9 9.9l2.1 2.1m0-14.1l-2.1 2.1M7 17.1l-2.1 2.1" /></svg></span>
             Settings
@@ -1308,8 +1315,26 @@ export default function Home() {
             <div className="byok-box">
               <div className="byok-hd">🔑 BYOK — Groq API Key (min. 4)</div>
               <p className="byok-help">
-                Tempel API key Groq milikmu (buat di console.groq.com). Tiap user minimal 4 key untuk rotasi fallback.
-                Key hanya tersimpan di browser kamu.
+                <strong>Cara dapat API key Groq (gratis):</strong>
+              </p>
+              <ol className="byok-steps">
+                <li>Klik tombol <strong>Buat API Key di Groq</strong> di bawah (buka tab baru).</li>
+                <li>Login / daftar di Groq Console.</li>
+                <li>Klik <strong>Create API Key</strong>, beri nama (mis. Zanco-1).</li>
+                <li>Salin key (<code>gsk_...</code>) — hanya muncul sekali.</li>
+                <li>Ulangi sampai dapat <strong>4 key</strong> (boleh 4 key di 1 akun, atau beda akun).</li>
+                <li>Tempel ke slot Key 1–4 di bawah, lalu <strong>Simpan</strong>.</li>
+              </ol>
+              <a
+                className="byok-create"
+                href="https://console.groq.com/keys"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {'\ud83d\udd17'} Buat API Key di Groq Console ↗
+              </a>
+              <p className="byok-help" style={{ marginTop: 10 }}>
+                Key hanya tersimpan di browser kamu. Minimal 4 key untuk rotasi fallback.
               </p>
               {keysDraft.map((k, i) => (
                 <div className="byok-row" key={i}>
