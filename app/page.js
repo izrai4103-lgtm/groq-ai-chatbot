@@ -668,6 +668,7 @@ export default function Home() {
   const [historyQuery, setHistoryQuery] = useState('')
   const [animPref, setAnimPref] = useState(loadAnimPref)
   const [showSettings, setShowSettings] = useState(false)
+  const [showApiKeys, setShowApiKeys] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [profile, setProfile] = useState(loadProfile)
@@ -1190,8 +1191,8 @@ export default function Home() {
           )}
           <button
             className="sidebar-bt-item sb-apikeys"
-            onClick={() => { setShowSettings(true); setKeysMsg(''); }}
-            title="Pasang API Key Groq (BYOK)"
+            onClick={() => { setShowApiKeys(true); setKeysMsg(''); }}
+            title="ZANCO-AI KEY"
           >
             {'\ud83d\udd11'} API Keys
           </button>
@@ -1312,6 +1313,23 @@ export default function Home() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
               </button>
             </div>
+            <div className="settings-about">
+              <div className="settings-about-ic" aria-hidden>{'\u2728'}</div>
+              <p className="settings-about-tx">AI ini dibuat oleh developer tunggal<br /><strong>~Andmute{'\ud83c\udf89'}</strong></p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showApiKeys && (
+        <div className="settings-overlay" onClick={() => setShowApiKeys(false)}>
+          <div className="settings" role="dialog" aria-modal="true" aria-label="API Keys" onClick={e => e.stopPropagation()}>
+            <div className="settings-hd">
+              <h3>API Keys</h3>
+              <button className="settings-close" onClick={() => setShowApiKeys(false)} aria-label="Tutup">
+                ×
+              </button>
+            </div>
             <div className="byok-box">
               <div className="byok-hd">🔑 ZANCO-AI KEY</div>
               <p className="byok-help">
@@ -1403,10 +1421,6 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="settings-about">
-              <div className="settings-about-ic" aria-hidden>{'\u2728'}</div>
-              <p className="settings-about-tx">AI ini dibuat oleh developer tunggal<br /><strong>~Andmute{'\ud83c\udf89'}</strong></p>
-            </div>
           </div>
         </div>
       )}
