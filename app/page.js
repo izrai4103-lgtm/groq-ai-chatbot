@@ -1313,7 +1313,7 @@ export default function Home() {
               </button>
             </div>
             <div className="byok-box">
-              <div className="byok-hd">🔑 BYOK — Groq API Key (min. 4)</div>
+              <div className="byok-hd">🔑 ZANCO-AI KEY</div>
               <p className="byok-help">
                 <strong>Cara dapat API key Groq (gratis):</strong>
               </p>
