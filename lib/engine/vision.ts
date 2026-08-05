@@ -176,7 +176,7 @@ async function callGroqVision(system: string, content: unknown): Promise<string>
       { role: 'user', content },
     ],
     temperature: 0.3,
-    max_tokens: 1028,
+    max_tokens: 8192,
   }
 
   let lastDetail = ''

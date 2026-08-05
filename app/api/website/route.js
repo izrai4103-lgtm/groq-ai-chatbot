@@ -100,7 +100,7 @@ function extractJson(text) {
 async function askModel(systemPrompt, userContent, opts = {}) {
   const json = opts.json !== false
   const temperature = opts.temperature != null ? opts.temperature : 0.2
-  const maxTokens = opts.maxTokens || 1028
+  const maxTokens = opts.maxTokens || 8192
   const timeoutMs = opts.timeoutMs || 30_000
 
   const keys = getFeatureKeys('chat')
@@ -294,7 +294,7 @@ async function clickSelector(page, selector) {
  * ============================================================ */
 
 async function runAgent(instruction) {
-  const plan = await askModel(PLAN_PROMPT, instruction, { json: true, maxTokens: 1028 })
+  const plan = await askModel(PLAN_PROMPT, instruction, { json: true, maxTokens: 8192 })
   if (plan && plan.refuse) {
     return { success: false, error: String(plan.refuse) }
   }
@@ -367,7 +367,7 @@ async function runAgent(instruction) {
           submit,
           clickLabel,
         }),
-        { json: true, maxTokens: 1028 },
+        { json: true, maxTokens: 8192 },
       )
       if (!map) break
 
@@ -433,7 +433,7 @@ async function runAgent(instruction) {
     const summary = await askModel(
       SUMMARY_PROMPT,
       JSON.stringify({ instruction, url: finalUrl, title: finalTitle, actions, note, pageSnippet: pageSnippet.slice(0, 1200) }),
-      { json: false, temperature: 0.4, maxTokens: 1028 },
+      { json: false, temperature: 0.4, maxTokens: 8192 },
     )
 
     let screenshotUrl = null
