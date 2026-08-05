@@ -1315,7 +1315,7 @@ export default function Home() {
             <div className="byok-box">
               <div className="byok-hd">🔑 ZANCO-AI KEY</div>
               <p className="byok-help">
-                <strong>Cara dapat API key Groq (gratis):</strong>
+                <strong>Cara dapat API key Untuk Zanco-Ai</strong>
               </p>
               <ol className="byok-steps">
                 <li>Klik tombol <strong>Buat API Key</strong> di bawah (buka Zanco Key Keeper).</li>
