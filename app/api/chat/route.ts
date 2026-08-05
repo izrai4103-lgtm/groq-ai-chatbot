@@ -1,6 +1,8 @@
 import { runChat } from '@/lib/engine/engine'
 import type { EngineErrorCode } from '@/lib/engine/types'
 import { applyClientTokenHint, deductUserTokens, flushTokenUsage, getCompletionRecorded, getUserTokenStatus } from '@/lib/token-usage'
+import { setRequestUserKeys, clearRequestUserKeys } from '@/lib/provider-keys'
+import { sanitizeClientKeys } from '@/lib/user-keys'
 
 export const maxDuration = 300
 
@@ -26,6 +28,7 @@ export async function POST(request: Request) {
       guestId?: unknown
       pageContext?: unknown
       clientTokenHint?: { used?: unknown; resetAt?: unknown } | null
+      userApiKeys?: unknown
     } | null
 
     // Dapatkan IP client
@@ -59,7 +62,15 @@ export async function POST(request: Request) {
     const context = pageCtx
       ? `KONTEKS HALAMAN SAAT INI (langsung dari browser user):\n${JSON.stringify(pageCtx).slice(0, 2500)}`
       : undefined
-    const result = await runChat(body?.messages, ip, context)
+    // BYOK Groq: key milik user (rotasi di provider-keys)
+    const userKeys = sanitizeClientKeys(body?.userApiKeys)
+    setRequestUserKeys(userKeys)
+    let result
+    try {
+      result = await runChat(body?.messages, ip, context)
+    } finally {
+      clearRequestUserKeys()
+    }
     await flushTokenUsage()
     let spent = getCompletionRecorded() - before
     // Fallback estimasi bila API Groq tidak mengirim usage (spent=0)

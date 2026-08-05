@@ -2149,3 +2149,28 @@ a,.sidebar-item,.chat-item,.topbar-btn,.comp-btn,.act-btn,.hist-clear,.switch{-w
   .music-bar.anim{animation:none}
   .music-progress-fill{transition:none}
 }
+
+
+/* === BYOK Groq keys === */
+.byok-box{
+  margin:12px 16px 8px;padding:14px;border-radius:14px;
+  background:rgba(79,70,229,.08);border:1px solid rgba(79,70,229,.22)
+}
+.byok-hd{font-weight:700;font-size:14px;margin-bottom:6px;color:#312e81}
+.byok-help{font-size:12px;line-height:1.45;color:#4b5563;margin:0 0 10px}
+.byok-row{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.byok-lbl{font-size:11px;font-weight:600;color:#4338ca}
+.byok-input{
+  border:1px solid #c7d2fe;border-radius:10px;padding:8px 10px;
+  font-size:13px;font-family:ui-monospace,monospace;background:#fff
+}
+.byok-input:focus{outline:2px solid #818cf8;border-color:#6366f1}
+.byok-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.byok-btn{
+  border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;
+  background:#4f46e5;color:#fff;cursor:pointer
+}
+.byok-btn.ghost{background:#e0e7ff;color:#3730a3}
+.byok-btn:hover{filter:brightness(1.05)}
+.byok-msg{font-size:12px;margin:8px 0 0;color:#b45309}
+.byok-status{font-size:12px;margin:8px 0 0;color:#4338ca;font-weight:600}

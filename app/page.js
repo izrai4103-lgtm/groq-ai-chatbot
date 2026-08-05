@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, Fragment } from 'react'
 import Markdown from './Markdown'
 import ProfilePanel from '../components/ProfilePanel'
+import { loadUserKeys, saveUserKeys, getActiveUserKeys, MIN_USER_KEYS, isValidGroqKeyFormat } from '../lib/user-keys'
 import { loadProfile, saveProfile, DEFAULT_PROFILE } from '../lib/profile'
 import { loadSession, saveSession, clearSession } from '../lib/auth-sandbox'
 
@@ -671,6 +672,9 @@ export default function Home() {
   const [showProfile, setShowProfile] = useState(false)
   const [profile, setProfile] = useState(loadProfile)
   const [session, setSession] = useState(loadSession)
+  const [userApiKeys, setUserApiKeys] = useState(() => loadUserKeys(null))
+  const [keysDraft, setKeysDraft] = useState(() => loadUserKeys(null))
+  const [keysMsg, setKeysMsg] = useState('')
   const [tokenUsage, setTokenUsage] = useState(null)
   const [now, setNow] = useState(Date.now())
 
@@ -790,6 +794,11 @@ export default function Home() {
 
   useEffect(() => { saveProfile(profile) }, [profile])
   useEffect(() => { if (session) saveSession(session); else clearSession() }, [session])
+  useEffect(() => {
+    const keys = loadUserKeys(session?.guestId || null)
+    setUserApiKeys(keys)
+    setKeysDraft(keys)
+  }, [session?.guestId])
 
   useEffect(() => {
     if (!activeId || !messages.some(m => m.role === 'user')) return
@@ -919,6 +928,7 @@ export default function Home() {
           messages: messageList.map(m => ({ role: m.role, content: m.content })),
           guestId: session?.guestId || '',
           clientTokenHint,
+          userApiKeys: getActiveUserKeys(session?.guestId || null),
         })
       }
 
@@ -1295,6 +1305,70 @@ export default function Home() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
               </button>
             </div>
+            <div className="byok-box">
+              <div className="byok-hd">🔑 BYOK — Groq API Key (min. 4)</div>
+              <p className="byok-help">
+                Tempel API key Groq milikmu (buat di console.groq.com). Tiap user minimal 4 key untuk rotasi fallback.
+                Key hanya tersimpan di browser kamu.
+              </p>
+              {keysDraft.map((k, i) => (
+                <div className="byok-row" key={i}>
+                  <label className="byok-lbl">Key {i + 1}{i < 4 ? ' *' : ''}</label>
+                  <input
+                    className="byok-input"
+                    type="password"
+                    autoComplete="off"
+                    placeholder={i < 4 ? 'gsk_... (wajib)' : 'gsk_... (opsional)'}
+                    value={k}
+                    onChange={(e) => {
+                      const next = [...keysDraft]
+                      next[i] = e.target.value
+                      setKeysDraft(next)
+                    }}
+                  />
+                </div>
+              ))}
+              <div className="byok-actions">
+                <button
+                  type="button"
+                  className="byok-btn"
+                  onClick={() => {
+                    const filled = keysDraft.filter((x) => x && x.trim())
+                    if (filled.length < 4) {
+                      setKeysMsg('Isi minimal 4 API key Groq.')
+                      return
+                    }
+                    const invalid = keysDraft.filter((x) => x && x.trim() && !isValidGroqKeyFormat(x))
+                    if (invalid.length) {
+                      setKeysMsg('Ada key yang formatnya tidak valid.')
+                      return
+                    }
+                    saveUserKeys(session?.guestId || null, keysDraft)
+                    setUserApiKeys(loadUserKeys(session?.guestId || null))
+                    setKeysMsg('Tersimpan. Chat akan memakai key milikmu.')
+                    showToast?.('API key Groq disimpan')
+                  }}
+                >
+                  Simpan 4+ Key
+                </button>
+                <button
+                  type="button"
+                  className="byok-btn ghost"
+                  onClick={() => {
+                    const next = [...keysDraft, '']
+                    setKeysDraft(next)
+                  }}
+                >
+                  + Tambah slot
+                </button>
+              </div>
+              {keysMsg ? <p className="byok-msg">{keysMsg}</p> : null}
+              <p className="byok-status">
+                Aktif: {getActiveUserKeys(session?.guestId || null).length} key
+                {getActiveUserKeys(session?.guestId || null).length >= 4 ? ' ✓' : ' (kurang dari 4)'}
+              </p>
+            </div>
+
             <div className="settings-about">
               <div className="settings-about-ic" aria-hidden>{'\u2728'}</div>
               <p className="settings-about-tx">AI ini dibuat oleh developer tunggal<br /><strong>~Andmute{'\ud83c\udf89'}</strong></p>
